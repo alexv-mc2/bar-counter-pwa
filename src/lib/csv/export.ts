@@ -1,4 +1,6 @@
-import type { BarEvent, TapLogEntry } from "@/lib/types";
+import { formatEventDate, formatTapTime, getEventTotals } from "@/lib/events/results";
+import { csvLabels } from "@/lib/i18n/csv";
+import type { BarEvent, Locale, TapLogEntry } from "@/lib/types";
 
 function escapeCsv(value: string | number): string {
   const str = String(value);
@@ -6,53 +8,36 @@ function escapeCsv(value: string | number): string {
   return str;
 }
 
-export function buildEventCsv(event: BarEvent, tapLogs: TapLogEntry[]): string {
+function formatDelta(delta: 1 | -1): string {
+  return delta > 0 ? "+1" : "-1";
+}
+
+export function buildEventCsv(
+  event: BarEvent,
+  tapLogs: TapLogEntry[],
+  locale: Locale,
+): string {
+  const labels = csvLabels(locale);
+  const { total, drinks } = getEventTotals(event, locale);
   const lines: string[] = [];
-  const total = event.buttons.reduce((sum, b) => sum + b.count, 0);
 
-  lines.push("section,key,value");
-  lines.push(["summary", "event_id", escapeCsv(event.id)].join(","));
-  lines.push(["summary", "event_name", escapeCsv(event.name)].join(","));
-  lines.push(["summary", "created_at", escapeCsv(event.createdAt)].join(","));
-  lines.push(["summary", "updated_at", escapeCsv(event.updatedAt)].join(","));
-  lines.push(["summary", "is_active", escapeCsv(event.isActive ? "yes" : "no")].join(","));
-  lines.push(["summary", "total_drinks", escapeCsv(total)].join(","));
+  lines.push(`${labels.event},${escapeCsv(event.name)}`);
+  lines.push(`${labels.date},${formatEventDate(event.createdAt, locale)}`);
+  lines.push(`${labels.totalDrinks},${total}`);
   lines.push("");
-
-  lines.push(
-    "drinks,slot,button_id,name,category,icon,color,count",
-  );
-  for (const button of [...event.buttons].sort((a, b) => a.slotIndex - b.slotIndex)) {
-    lines.push(
-      [
-        "drink",
-        button.slotIndex,
-        escapeCsv(button.id),
-        escapeCsv(button.name),
-        escapeCsv(button.category),
-        escapeCsv(button.icon),
-        escapeCsv(button.color),
-        button.count,
-      ].join(","),
-    );
+  lines.push(`${labels.drink},${labels.quantity}`);
+  for (const drink of drinks) {
+    lines.push(`${escapeCsv(drink.name)},${drink.count}`);
   }
   lines.push("");
-
-  lines.push(
-    "tap_log,timestamp,event_id,button_id,button_name,category,icon,color,delta",
-  );
+  lines.push(labels.tapLogTitle);
+  lines.push(`${labels.tapTime},${labels.tapDrink},${labels.tapAction}`);
   for (const log of tapLogs) {
     lines.push(
       [
-        "tap",
-        escapeCsv(log.timestamp),
-        escapeCsv(log.eventId),
-        escapeCsv(log.buttonId),
+        formatTapTime(log.timestamp, locale),
         escapeCsv(log.buttonName),
-        escapeCsv(log.category),
-        escapeCsv(log.icon),
-        escapeCsv(log.color),
-        log.delta,
+        formatDelta(log.delta),
       ].join(","),
     );
   }
@@ -61,11 +46,19 @@ export function buildEventCsv(event: BarEvent, tapLogs: TapLogEntry[]): string {
 }
 
 export function downloadCsv(filename: string, content: string): void {
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob(["\uFEFF", content], {
+    type: "text/csv;charset=utf-8",
+  });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+export function eventCsvFilename(event: BarEvent): string {
+  const safeName = event.name.replace(/[^a-zA-Z0-9а-яА-ЯёЁäöüß\-_]+/gi, "_");
+  const date = new Date(event.createdAt).toISOString().slice(0, 10);
+  return `${safeName || "event"}-${date}.csv`;
 }

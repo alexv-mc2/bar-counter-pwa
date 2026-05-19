@@ -19,7 +19,8 @@ export function DrinkGridButton({
   onLongPress: (button: DrinkButton) => void;
 }) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const firedRef = useRef(false);
+  const longPressRef = useRef(false);
+  const suppressClickRef = useRef(false);
   const palette = COLOR_CLASSES[button.color];
 
   const clearTimer = useCallback(() => {
@@ -29,11 +30,14 @@ export function DrinkGridButton({
     }
   }, []);
 
-  const startPress = () => {
-    firedRef.current = false;
+  const startPress = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return;
+    longPressRef.current = false;
+    suppressClickRef.current = false;
     clearTimer();
     timerRef.current = setTimeout(() => {
-      firedRef.current = true;
+      longPressRef.current = true;
+      suppressClickRef.current = true;
       onLongPress(button);
     }, LONG_PRESS_MS);
   };
@@ -43,8 +47,9 @@ export function DrinkGridButton({
   };
 
   const handleClick = () => {
-    if (firedRef.current) {
-      firedRef.current = false;
+    if (longPressRef.current || suppressClickRef.current) {
+      longPressRef.current = false;
+      suppressClickRef.current = false;
       return;
     }
     onTap(button.id);
@@ -58,6 +63,7 @@ export function DrinkGridButton({
       onPointerLeave={clearTimer}
       onPointerCancel={clearTimer}
       onClick={handleClick}
+      onContextMenu={(e) => e.preventDefault()}
       className={`relative flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-2xl p-3 text-center text-white shadow-lg ring-2 ${palette.bg} ${palette.ring} ${undoMode ? "outline outline-4 outline-dashed outline-amber-200" : ""} active:scale-[0.98]`}
     >
       <DrinkIconView icon={button.icon} className="h-8 w-8" />

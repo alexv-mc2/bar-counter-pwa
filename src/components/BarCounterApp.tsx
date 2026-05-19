@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { DrinkGridButton } from "@/components/DrinkGridButton";
 import { EditButtonModal } from "@/components/EditButtonModal";
-import { buildEventCsv, downloadCsv } from "@/lib/csv/export";
+import { EventResultsView } from "@/components/EventResultsView";
+import { buildEventCsv, downloadCsv, eventCsvFilename } from "@/lib/csv/export";
 import { t } from "@/lib/i18n/messages";
 import {
   applyTap,
@@ -32,6 +33,7 @@ export function BarCounterApp() {
   const [eventName, setEventName] = useState("");
   const [undoMode, setUndoMode] = useState(false);
   const [editingButton, setEditingButton] = useState<DrinkButton | null>(null);
+  const [resultsEvent, setResultsEvent] = useState<BarEvent | null>(null);
 
   const m = t(locale);
 
@@ -85,18 +87,30 @@ export function BarCounterApp() {
       const updated = await applyTap(activeEvent, buttonId, -1);
       setActiveEventState(updated);
       setUndoMode(false);
-    } else {
-      const updated = await applyTap(activeEvent, buttonId, 1);
-      setActiveEventState(updated);
+      await refresh();
+      if (resultsEvent?.id === updated.id) {
+        setResultsEvent(updated);
+      }
+      return;
     }
+    const updated = await applyTap(activeEvent, buttonId, 1);
+    setActiveEventState(updated);
     await refresh();
+    if (resultsEvent?.id === updated.id) {
+      setResultsEvent(updated);
+    }
+  };
+
+  const openResults = async (event: BarEvent) => {
+    const fresh = await getEvent(event.id);
+    setResultsEvent(fresh ?? event);
   };
 
   const handleExport = async (event: BarEvent) => {
-    const logs = await getTapLogsForEvent(event.id);
-    const csv = buildEventCsv(event, logs);
-    const safeName = event.name.replace(/[^a-zA-Z0-9-_]+/g, "_");
-    downloadCsv(`${safeName || "event"}-${event.id.slice(0, 8)}.csv`, csv);
+    const fresh = (await getEvent(event.id)) ?? event;
+    const logs = await getTapLogsForEvent(fresh.id);
+    const csv = buildEventCsv(fresh, logs, locale);
+    downloadCsv(eventCsvFilename(fresh), csv);
   };
 
   const handleCloseEvent = async () => {
@@ -112,6 +126,9 @@ export function BarCounterApp() {
     setActiveEventState(updated);
     setEditingButton(null);
     await refresh();
+    if (resultsEvent?.id === updated.id) {
+      setResultsEvent(updated);
+    }
   };
 
   return (
@@ -213,6 +230,13 @@ export function BarCounterApp() {
                     </button>
                     <button
                       type="button"
+                      className="min-h-11 rounded-lg bg-slate-600 px-4 py-2 font-semibold"
+                      onClick={() => void openResults(event)}
+                    >
+                      {m.results}
+                    </button>
+                    <button
+                      type="button"
                       className="min-h-11 rounded-lg bg-amber-500 px-4 py-2 font-semibold text-slate-950"
                       onClick={() => void handleExport(event)}
                     >
@@ -235,6 +259,13 @@ export function BarCounterApp() {
               className="min-h-11 rounded-xl bg-slate-800 px-4 py-2 font-semibold"
             >
               {m.back}
+            </button>
+            <button
+              type="button"
+              onClick={() => void openResults(activeEvent)}
+              className="min-h-11 rounded-xl bg-slate-700 px-4 py-2 font-semibold"
+            >
+              {m.results}
             </button>
             <button
               type="button"
@@ -287,6 +318,15 @@ export function BarCounterApp() {
             onSave={(patch) => void handleSaveEdit(patch)}
           />
         </section>
+      )}
+
+      {resultsEvent && (
+        <EventResultsView
+          event={resultsEvent}
+          locale={locale}
+          onClose={() => setResultsEvent(null)}
+          onExport={() => void handleExport(resultsEvent)}
+        />
       )}
     </main>
   );
