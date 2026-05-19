@@ -1,6 +1,12 @@
 @import "tailwindcss";
 
+html {
+  min-height: 100%;
+  background-color: #FAF8F4;
+}
+
 body {
+  min-height: 100%;
   background-color: #FAF8F4;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -8,4 +14,8 @@ body {
 
 button {
   touch-action: manipulation;
+}
+
+button:disabled {
+  cursor: not-allowed;
 }

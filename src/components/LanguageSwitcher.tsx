@@ -10,16 +10,16 @@ export function LanguageSwitcher({
   onChange: (locale: Locale) => void;
 }) {
   return (
-    <div className="flex rounded-xl border border-stone-300 bg-white p-1 shadow-sm">
+    <div className="flex justify-self-end rounded-2xl border border-stone-300 bg-white p-1.5 shadow-sm">
       {(["ru", "de"] as const).map((code) => (
         <button
           key={code}
           type="button"
           onClick={() => onChange(code)}
-          className={`min-h-9 min-w-12 rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${
+          className={`min-h-12 min-w-16 rounded-xl px-5 py-2 text-base font-black transition-colors ${
             locale === code
-              ? "bg-red-600 text-white"
-              : "text-stone-600 hover:text-stone-900"
+              ? "bg-red-700 text-white shadow-[0_5px_14px_rgba(185,28,28,0.20)]"
+              : "text-stone-700 hover:text-stone-950"
           }`}
         >
           {code.toUpperCase()}

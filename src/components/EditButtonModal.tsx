@@ -22,9 +22,9 @@ const ICONS: DrinkIcon[] = [
 ];
 
 const LABEL_CLS =
-  "mb-1.5 block text-xs font-bold uppercase tracking-wide text-stone-500";
+  "mb-1.5 block text-sm font-black uppercase tracking-wide text-stone-500";
 const SELECT_CLS =
-  "mb-4 w-full rounded-xl border-2 border-stone-200 bg-stone-50 px-4 py-3 text-base text-stone-900 focus:border-red-500 focus:outline-none";
+  "mb-4 w-full rounded-2xl border-2 border-stone-200 bg-white px-4 py-3 text-base font-bold text-stone-900 focus:border-red-500 focus:outline-none";
 
 export function EditButtonModal({
   locale,
@@ -80,23 +80,23 @@ function EditButtonForm({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-900/50 p-4 sm:items-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-950/55 p-4 sm:items-center">
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-stone-200"
+        className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-red-100 bg-[#fffdfa] p-6 shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-button-title"
       >
         <h2
           id="edit-button-title"
-          className="mb-4 text-xl font-black text-stone-900"
+          className="mb-5 text-3xl font-black text-stone-950"
         >
           {m.editButton}
         </h2>
 
         <label className={LABEL_CLS}>{m.displayName}</label>
         <input
-          className="mb-4 w-full rounded-xl border-2 border-stone-200 bg-stone-50 px-4 py-3 text-lg font-medium text-stone-900 placeholder:text-stone-300 focus:border-red-500 focus:outline-none"
+          className="mb-4 w-full rounded-2xl border-2 border-stone-200 bg-white px-4 py-3 text-xl font-black text-stone-950 placeholder:text-stone-300 focus:border-red-500 focus:outline-none"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -158,7 +158,7 @@ function EditButtonForm({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-12 flex-1 rounded-xl border-2 border-stone-300 bg-white px-4 py-3 font-semibold text-stone-700 active:bg-stone-100"
+            className="min-h-14 flex-1 rounded-2xl border-2 border-stone-300 bg-white px-4 py-3 font-black text-stone-700 active:bg-stone-100"
           >
             {m.cancel}
           </button>
@@ -173,7 +173,7 @@ function EditButtonForm({
                 color,
               })
             }
-            className="min-h-12 flex-1 rounded-xl bg-red-600 px-4 py-3 font-bold text-white shadow-sm active:bg-red-700"
+            className="min-h-14 flex-1 rounded-2xl bg-red-700 px-4 py-3 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800"
           >
             {m.save}
           </button>

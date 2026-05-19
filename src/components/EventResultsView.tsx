@@ -20,36 +20,36 @@ export function EventResultsView({
   const status = event.isActive ? m.active : m.closed;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-900/50 p-4 sm:items-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-950/55 p-4 sm:items-center">
       <div
-        className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-stone-200"
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-red-100 bg-[#fffdfa] shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="event-results-title"
       >
-        <div className="overflow-y-auto p-5">
+        <div className="overflow-y-auto p-6">
           <h2
             id="event-results-title"
-            className="mb-0.5 text-xl font-black text-stone-900"
+            className="mb-1 text-4xl font-black tracking-tight text-stone-950"
           >
             {m.results}
           </h2>
-          <p className="mb-4 text-sm text-stone-400">
+          <p className="mb-5 text-base font-medium text-stone-500">
             {formatEventDateTime(event.createdAt, locale)}
           </p>
 
-          <dl className="mb-4 space-y-2 text-sm">
+          <dl className="mb-5 space-y-3 text-base">
             <div className="flex justify-between gap-4">
               <dt className="text-stone-500">{m.eventName}</dt>
-              <dd className="text-right font-bold text-stone-900">{event.name}</dd>
+              <dd className="text-right text-xl font-black text-stone-950">{event.name}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-stone-500">{m.resultsStatus}</dt>
               <dd className="text-right">
                 <span
-                  className={`inline-block rounded-full px-2 py-0.5 text-xs font-bold uppercase ${
+                  className={`inline-block rounded-lg px-3 py-1 text-xs font-black uppercase ${
                     event.isActive
-                      ? "bg-red-600 text-white"
+                      ? "bg-red-700 text-white"
                       : "bg-stone-200 text-stone-600"
                   }`}
                 >
@@ -57,29 +57,29 @@ export function EventResultsView({
                 </span>
               </dd>
             </div>
-            <div className="flex items-baseline justify-between gap-4 border-t border-stone-100 pt-3">
-              <dt className="font-semibold text-stone-700">{m.resultsTotal}</dt>
-              <dd className="text-3xl font-black text-red-600">{total}</dd>
+            <div className="flex items-baseline justify-between gap-4 border-t border-red-100 pt-4">
+              <dt className="font-black text-stone-800">{m.resultsTotal}</dt>
+              <dd className="text-6xl font-black leading-none text-red-700">{total}</dd>
             </div>
           </dl>
 
           {drinks.length === 0 ? (
-            <p className="rounded-xl bg-stone-50 px-4 py-6 text-center text-stone-400">
+            <p className="rounded-2xl border border-stone-200 bg-white px-4 py-8 text-center text-lg font-bold text-stone-400">
               {m.resultsEmpty}
             </p>
           ) : (
-            <table className="w-full text-left text-sm">
+            <table className="w-full text-left text-base">
               <thead>
-                <tr className="border-b border-stone-200 text-stone-400">
-                  <th className="pb-2 font-semibold">{m.resultsDrink}</th>
-                  <th className="pb-2 text-right font-semibold">{m.resultsCount}</th>
+                <tr className="border-b border-stone-200 text-stone-500">
+                  <th className="pb-3 font-black">{m.resultsDrink}</th>
+                  <th className="pb-3 text-right font-black">{m.resultsCount}</th>
                 </tr>
               </thead>
               <tbody>
                 {drinks.map((drink) => (
                   <tr key={drink.id} className="border-b border-stone-100">
-                    <td className="py-2 pr-2 text-stone-900">{drink.name}</td>
-                    <td className="py-2 text-right font-black text-stone-900">
+                    <td className="py-3 pr-2 font-bold text-stone-950">{drink.name}</td>
+                    <td className="py-3 text-right text-xl font-black text-stone-950">
                       {drink.count}
                     </td>
                   </tr>
@@ -89,18 +89,18 @@ export function EventResultsView({
           )}
         </div>
 
-        <div className="flex gap-3 border-t border-stone-200 p-4">
+        <div className="flex gap-3 border-t border-red-100 bg-white/80 p-4">
           <button
             type="button"
             onClick={onClose}
-            className="min-h-12 flex-1 rounded-xl border-2 border-stone-300 bg-white px-4 py-3 font-semibold text-stone-700 active:bg-stone-100"
+            className="min-h-14 flex-1 rounded-2xl border-2 border-stone-300 bg-white px-4 py-3 font-black text-stone-700 active:bg-stone-100"
           >
             {m.back}
           </button>
           <button
             type="button"
             onClick={onExport}
-            className="min-h-12 flex-1 rounded-xl bg-red-600 px-4 py-3 font-bold text-white shadow-sm active:bg-red-700"
+            className="min-h-14 flex-1 rounded-2xl bg-red-700 px-4 py-3 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800"
           >
             {m.exportCsv}
           </button>
