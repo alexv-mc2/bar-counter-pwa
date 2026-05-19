@@ -38,8 +38,8 @@ export const DRINK_TEMPLATES: DrinkTemplate[] = [
   { id: "raf", category: "coffee", icon: "coffee", color: "amber", labels: { ru: "Раф", de: "Raf Coffee" } },
   { id: "cola", category: "soft", icon: "cup", color: "slate", labels: { ru: "Кола", de: "Cola" } },
   { id: "water", category: "soft", icon: "water", color: "blue", labels: { ru: "Вода", de: "Wasser" } },
-  { id: "beer", category: "other", icon: "beer", color: "amber", labels: { ru: "Пиво", de: "Bier" } },
-  { id: "wine", category: "other", icon: "wine", color: "red", labels: { ru: "Вино", de: "Wein" } },
+  { id: "beer", category: "beer", icon: "beer", color: "amber", labels: { ru: "Пиво", de: "Bier" } },
+  { id: "wine", category: "wine", icon: "wine", color: "red", labels: { ru: "Вино", de: "Wein" } },
   { id: "shot", category: "other", icon: "shot", color: "purple", labels: { ru: "Шот", de: "Shot" } },
 ];
 

@@ -5,7 +5,12 @@ export type DrinkCategory =
   | "mocktail"
   | "coffee"
   | "soft"
+  | "beer"
+  | "wine"
+  | "tea"
   | "other";
+
+export type ButtonCountPreset = 4 | 5 | 6 | 7 | 8 | 12 | 16;
 
 export type DrinkColor =
   | "amber"

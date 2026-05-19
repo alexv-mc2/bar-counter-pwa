@@ -19,3 +19,17 @@ button {
 button:disabled {
   cursor: not-allowed;
 }
+
+.rbbc-product-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--rbbc-grid-cols), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--rbbc-grid-rows), minmax(0, 1fr));
+  gap: clamp(0.6rem, 1vw, 1.25rem);
+}
+
+@media (max-width: 760px) {
+  .rbbc-product-grid {
+    grid-template-columns: repeat(var(--rbbc-grid-mobile-cols), minmax(0, 1fr));
+    grid-template-rows: repeat(var(--rbbc-grid-mobile-rows), minmax(0, 1fr));
+  }
+}

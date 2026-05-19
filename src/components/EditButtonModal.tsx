@@ -5,7 +5,16 @@ import { DRINK_TEMPLATES } from "@/lib/templates/drinks";
 import { t } from "@/lib/i18n/messages";
 import type { DrinkButton, DrinkCategory, DrinkColor, DrinkIcon, Locale } from "@/lib/types";
 
-const CATEGORIES: DrinkCategory[] = ["cocktail", "mocktail", "coffee", "soft", "other"];
+const CATEGORIES: DrinkCategory[] = [
+  "cocktail",
+  "mocktail",
+  "coffee",
+  "soft",
+  "beer",
+  "wine",
+  "tea",
+  "other",
+];
 const COLORS: DrinkColor[] = ["amber", "blue", "green", "red", "purple", "slate"];
 const ICONS: DrinkIcon[] = [
   "cocktail",

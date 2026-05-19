@@ -1,8 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { DrinkGridButton } from "@/components/DrinkGridButton";
+import { DrinkGridButton, type DrinkCardScale } from "@/components/DrinkGridButton";
 import { EditButtonModal } from "@/components/EditButtonModal";
 import { EventResultsView } from "@/components/EventResultsView";
 import { buildEventCsv, downloadCsv, eventCsvFilename } from "@/lib/csv/export";
@@ -25,11 +31,52 @@ import {
   setActiveEvent,
   updateButton,
 } from "@/lib/storage/events";
-import { getLastActiveEventId, getLocale, setLocale } from "@/lib/storage/preferences";
-import type { BarEvent, DrinkButton, Locale } from "@/lib/types";
+import {
+  getButtonCountPreset,
+  getLastActiveEventId,
+  getLocale,
+  setButtonCountPreset,
+  setLocale,
+} from "@/lib/storage/preferences";
+import type { BarEvent, ButtonCountPreset, DrinkButton, Locale } from "@/lib/types";
 
 type Screen = "home" | "create" | "event" | "history";
 type Messages = ReturnType<typeof t>;
+type ProductGridStyle = CSSProperties & {
+  "--rbbc-grid-cols": number;
+  "--rbbc-grid-rows": number;
+  "--rbbc-grid-mobile-cols": number;
+  "--rbbc-grid-mobile-rows": number;
+};
+
+const BUTTON_COUNT_PRESETS: readonly ButtonCountPreset[] = [4, 5, 6, 7, 8, 12, 16];
+
+function getProductGridLayout(count: number): {
+  columns: number;
+  rows: number;
+  mobileColumns: number;
+  mobileRows: number;
+  cardScale: DrinkCardScale;
+} {
+  if (count <= 4) {
+    return { columns: 2, rows: 2, mobileColumns: 2, mobileRows: 2, cardScale: "large" };
+  }
+  if (count <= 6) {
+    return { columns: 3, rows: 2, mobileColumns: 2, mobileRows: 3, cardScale: "large" };
+  }
+  if (count <= 8) {
+    return { columns: 4, rows: 2, mobileColumns: 2, mobileRows: 4, cardScale: "medium" };
+  }
+  if (count <= 12) {
+    return { columns: 4, rows: 3, mobileColumns: 3, mobileRows: 4, cardScale: "compact" };
+  }
+  return { columns: 4, rows: 4, mobileColumns: 2, mobileRows: 8, cardScale: "compact" };
+}
+
+function formatButtonCountPreset(preset: ButtonCountPreset, locale: Locale) {
+  if (locale === "de") return `${preset} Tasten`;
+  return preset === 4 ? "4 кнопки" : `${preset} кнопок`;
+}
 
 function RollingBadgerLogo() {
   return (
@@ -257,6 +304,7 @@ function SidePanel({
   m,
   openResults,
   goHistory,
+  openTemplate,
 }: {
   activeEvent: BarEvent;
   totalCount: number;
@@ -264,6 +312,7 @@ function SidePanel({
   m: Messages;
   openResults: () => void;
   goHistory: () => void;
+  openTemplate: () => void;
 }) {
   return (
     <aside className="hidden w-72 shrink-0 flex-col overflow-hidden rounded-2xl border border-red-200/70 bg-white/85 shadow-[0_4px_18px_rgba(120,53,15,0.10)] xl:flex">
@@ -291,7 +340,7 @@ function SidePanel({
         <PanelButton icon={<NavHistoryIcon className="h-5 w-5" />} onClick={goHistory}>
           {m.history}
         </PanelButton>
-        <PanelButton icon={<NavTemplateIcon className="h-5 w-5" />} disabled>
+        <PanelButton icon={<NavTemplateIcon className="h-5 w-5" />} onClick={openTemplate}>
           {m.drinkTemplate}
         </PanelButton>
         <PanelButton icon={<NavSettingsIcon className="h-5 w-5" />} disabled>
@@ -323,7 +372,7 @@ function PanelButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex min-h-14 w-full items-center justify-between gap-3 px-5 text-left font-bold text-stone-900 disabled:cursor-not-allowed disabled:text-stone-400"
+      className="flex min-h-14 w-full items-center justify-between gap-3 px-5 text-left font-bold text-stone-900 disabled:cursor-not-allowed disabled:text-stone-400 disabled:opacity-45"
     >
       <span className="flex items-center gap-3">
         {icon}
@@ -342,12 +391,14 @@ function BottomNav({
   m,
   goEvent,
   goHistory,
+  openTemplate,
 }: {
   screen: Screen;
   activeEvent: BarEvent | null;
   m: Messages;
   goEvent: () => void;
   goHistory: () => void;
+  openTemplate: () => void;
 }) {
   const itemClass =
     "flex min-h-16 flex-1 flex-col items-center justify-center gap-1 border-t-4 px-2 text-sm font-black";
@@ -379,8 +430,8 @@ function BottomNav({
       </button>
       <button
         type="button"
-        disabled
-        className={`${itemClass} border-transparent text-stone-300`}
+        onClick={openTemplate}
+        className={`${itemClass} border-transparent text-stone-500`}
       >
         <NavTemplateIcon className="h-7 w-7" />
         {m.drinkTemplate}
@@ -388,12 +439,81 @@ function BottomNav({
       <button
         type="button"
         disabled
-        className={`${itemClass} border-transparent text-stone-300`}
+        className={`${itemClass} border-transparent text-stone-300 opacity-45`}
       >
         <NavSettingsIcon className="h-7 w-7" />
         {m.settings}
       </button>
     </nav>
+  );
+}
+
+function ButtonTemplateModal({
+  locale,
+  m,
+  currentPreset,
+  onApply,
+  onClose,
+}: {
+  locale: Locale;
+  m: Messages;
+  currentPreset: ButtonCountPreset;
+  onApply: (preset: ButtonCountPreset) => void;
+  onClose: () => void;
+}) {
+  const [draftPreset, setDraftPreset] = useState<ButtonCountPreset>(currentPreset);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-950/55 p-4 sm:items-center">
+      <div
+        className="w-full max-w-xl rounded-3xl border border-red-100 bg-[#fffdfa] p-6 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="button-template-title"
+      >
+        <h2 id="button-template-title" className="text-3xl font-black text-stone-950">
+          {m.buttonTemplateTitle}
+        </h2>
+        <p className="mt-2 text-base font-black uppercase tracking-wide text-stone-500">
+          {m.buttonCountLabel}
+        </p>
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {BUTTON_COUNT_PRESETS.map((preset) => {
+            const selected = draftPreset === preset;
+            return (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setDraftPreset(preset)}
+                className={`min-h-16 rounded-2xl border-2 px-4 py-3 text-lg font-black transition ${
+                  selected
+                    ? "border-red-700 bg-red-700 text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)]"
+                    : "border-stone-300 bg-white text-stone-800 active:bg-stone-100"
+                }`}
+              >
+                {formatButtonCountPreset(preset, locale)}
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-14 flex-1 rounded-2xl border-2 border-stone-300 bg-white px-4 py-3 font-black text-stone-700 active:bg-stone-100"
+          >
+            {m.cancel}
+          </button>
+          <button
+            type="button"
+            onClick={() => onApply(draftPreset)}
+            className="min-h-14 flex-1 rounded-2xl bg-red-700 px-4 py-3 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800"
+          >
+            {m.apply}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -406,6 +526,9 @@ export function BarCounterApp() {
   const [undoMode, setUndoMode] = useState(false);
   const [editingButton, setEditingButton] = useState<DrinkButton | null>(null);
   const [resultsEvent, setResultsEvent] = useState<BarEvent | null>(null);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [buttonCountPresetState, setButtonCountPresetState] =
+    useState<ButtonCountPreset>(16);
 
   const m = t(locale);
 
@@ -432,6 +555,7 @@ export function BarCounterApp() {
 
   useEffect(() => {
     setLocaleState(getLocale());
+    setButtonCountPresetState(getButtonCountPreset());
   }, []);
 
   const changeLocale = (next: Locale) => {
@@ -501,16 +625,36 @@ export function BarCounterApp() {
     if (resultsEvent?.id === updated.id) setResultsEvent(updated);
   };
 
+  const handleApplyButtonTemplate = (preset: ButtonCountPreset) => {
+    setButtonCountPreset(preset);
+    setButtonCountPresetState(preset);
+    setTemplateOpen(false);
+  };
+
   const totalCount = activeEvent?.buttons.reduce((s, b) => s + b.count, 0) ?? 0;
   const heroEvent = screen === "event" ? activeEvent : null;
   const sortedButtons = activeEvent
     ? [...activeEvent.buttons].sort((a, b) => a.slotIndex - b.slotIndex)
     : [];
+  // Presets only change button visibility. Hidden slots stay in event.buttons, so
+  // non-zero hidden counts remain in totals, results, CSV export, and future presets.
+  const visibleButtons = sortedButtons.slice(
+    0,
+    Math.min(buttonCountPresetState, sortedButtons.length),
+  );
+  const gridLayout = getProductGridLayout(visibleButtons.length);
+  const productGridStyle: ProductGridStyle = {
+    "--rbbc-grid-cols": gridLayout.columns,
+    "--rbbc-grid-rows": gridLayout.rows,
+    "--rbbc-grid-mobile-cols": gridLayout.mobileColumns,
+    "--rbbc-grid-mobile-rows": gridLayout.mobileRows,
+  };
   const goCurrentEvent = () => {
     if (!activeEvent) return;
     void handleContinue();
   };
   const goHistory = () => setScreen("history");
+  const openTemplate = () => setTemplateOpen(true);
   const openActiveResults = () => {
     if (!activeEvent) return;
     void openResults(activeEvent);
@@ -733,16 +877,18 @@ export function BarCounterApp() {
           </div>
 
           <div className="flex min-h-0 flex-1 gap-4 overflow-hidden px-4 py-4 md:px-6 xl:px-8">
-            <div className="min-w-0 flex-1 overflow-auto pb-1">
+            <div className="min-w-0 flex-1 overflow-hidden">
               <div
-                className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:gap-4 xl:gap-5"
-                data-product-count={sortedButtons.length}
+                className="rbbc-product-grid h-full min-h-0"
+                style={productGridStyle}
+                data-product-count={visibleButtons.length}
               >
-                {sortedButtons.map((button) => (
+                {visibleButtons.map((button) => (
                   <DrinkGridButton
                     key={button.id}
                     button={button}
                     undoMode={undoMode}
+                    cardScale={gridLayout.cardScale}
                     onTap={(id) => void handleTap(id)}
                     onLongPress={setEditingButton}
                   />
@@ -756,6 +902,7 @@ export function BarCounterApp() {
               m={m}
               openResults={openActiveResults}
               goHistory={goHistory}
+              openTemplate={openTemplate}
             />
           </div>
         </section>
@@ -767,6 +914,7 @@ export function BarCounterApp() {
         m={m}
         goEvent={goCurrentEvent}
         goHistory={goHistory}
+        openTemplate={openTemplate}
       />
 
       <EditButtonModal
@@ -776,6 +924,16 @@ export function BarCounterApp() {
         onClose={() => setEditingButton(null)}
         onSave={(patch) => void handleSaveEdit(patch)}
       />
+
+      {templateOpen && (
+        <ButtonTemplateModal
+          locale={locale}
+          m={m}
+          currentPreset={buttonCountPresetState}
+          onApply={handleApplyButtonTemplate}
+          onClose={() => setTemplateOpen(false)}
+        />
+      )}
 
       {resultsEvent && (
         <EventResultsView
