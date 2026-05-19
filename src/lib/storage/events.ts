@@ -1,4 +1,11 @@
-import { STORES, idbGet, idbGetAll, idbGetAllByIndex, idbPut } from "@/lib/db/indexeddb";
+import {
+  STORES,
+  idbDelete,
+  idbGet,
+  idbGetAll,
+  idbGetAllByIndex,
+  idbPut,
+} from "@/lib/db/indexeddb";
 import { DRINK_TEMPLATES } from "@/lib/templates/drinks";
 import type {
   BarEvent,
@@ -7,7 +14,7 @@ import type {
   DrinkButtonConfig,
   TapLogEntry,
 } from "@/lib/types";
-import { setLastActiveEventId } from "@/lib/storage/preferences";
+import { getLastActiveEventId, setLastActiveEventId } from "@/lib/storage/preferences";
 
 const TEMPLATE_DOC_ID = "latest";
 
@@ -26,15 +33,36 @@ function defaultButtons(locale: "ru" | "de"): DrinkButton[] {
     icon: template.icon,
     color: template.color,
     count: 0,
+    pendingCount: 0,
   }));
 }
 
 function configFromButtons(buttons: DrinkButton[]): DrinkButtonConfig[] {
   return buttons.map((button) => {
-    const { count, ...config } = button;
+    const { count, pendingCount, ...config } = button;
     void count;
+    void pendingCount;
     return config;
   });
+}
+
+function normalizeCount(value: unknown): number {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  return Math.max(0, Math.floor(numeric));
+}
+
+function normalizeButton(button: DrinkButton): DrinkButton {
+  const count = normalizeCount(button.count);
+  const pendingCount = Math.min(count, normalizeCount(button.pendingCount));
+  return { ...button, count, pendingCount };
+}
+
+function normalizeEvent(event: BarEvent): BarEvent {
+  return {
+    ...event,
+    buttons: event.buttons.map(normalizeButton),
+  };
 }
 
 export async function getButtonTemplate(): Promise<DrinkButtonConfig[] | null> {
@@ -55,14 +83,15 @@ async function saveButtonTemplate(buttons: DrinkButton[]): Promise<void> {
 }
 
 export async function listEvents(): Promise<BarEvent[]> {
-  const events = await idbGetAll<BarEvent>(STORES.events);
+  const events = (await idbGetAll<BarEvent>(STORES.events)).map(normalizeEvent);
   return events.sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 }
 
 export async function getEvent(eventId: string): Promise<BarEvent | undefined> {
-  return idbGet<BarEvent>(STORES.events, eventId);
+  const event = await idbGet<BarEvent>(STORES.events, eventId);
+  return event ? normalizeEvent(event) : undefined;
 }
 
 export async function getActiveEvent(): Promise<BarEvent | undefined> {
@@ -80,7 +109,7 @@ export async function createEvent(name: string, locale: "ru" | "de"): Promise<Ba
 
   const template = await getButtonTemplate();
   const buttons: DrinkButton[] = template
-    ? template.map((config) => ({ ...config, id: newId(), count: 0 }))
+    ? template.map((config) => ({ ...config, id: newId(), count: 0, pendingCount: 0 }))
     : defaultButtons(locale);
 
   const now = new Date().toISOString();
@@ -100,7 +129,10 @@ export async function createEvent(name: string, locale: "ru" | "de"): Promise<Ba
 }
 
 export async function saveEvent(event: BarEvent): Promise<BarEvent> {
-  const updated: BarEvent = { ...event, updatedAt: new Date().toISOString() };
+  const updated: BarEvent = normalizeEvent({
+    ...event,
+    updatedAt: new Date().toISOString(),
+  });
   await idbPut(STORES.events, updated);
   await saveButtonTemplate(updated.buttons);
   if (updated.isActive) {
@@ -134,6 +166,16 @@ export async function closeActiveEvent(): Promise<void> {
   setLastActiveEventId(null);
 }
 
+export async function deleteEvent(eventId: string): Promise<void> {
+  const event = await getEvent(eventId);
+  await idbDelete(STORES.events, eventId);
+  const logs = await getTapLogsForEvent(eventId);
+  await Promise.all(logs.map((log) => idbDelete(STORES.tapLogs, log.id)));
+  if (event?.isActive || getLastActiveEventId() === eventId) {
+    setLastActiveEventId(null);
+  }
+}
+
 export async function appendTapLog(entry: Omit<TapLogEntry, "id">): Promise<TapLogEntry> {
   const full: TapLogEntry = { ...entry, id: newId() };
   await idbPut(STORES.tapLogs, full);
@@ -158,20 +200,17 @@ export async function updateButton(
   return saveEvent({ ...event, buttons });
 }
 
-export async function applyTap(
-  event: BarEvent,
-  buttonId: string,
-  delta: 1 | -1,
-): Promise<BarEvent> {
-  const button = event.buttons.find((b) => b.id === buttonId);
+export async function orderDrink(event: BarEvent, buttonId: string): Promise<BarEvent> {
+  const normalized = normalizeEvent(event);
+  const button = normalized.buttons.find((b) => b.id === buttonId);
   if (!button) return event;
-  const nextCount = Math.max(0, button.count + delta);
-  if (nextCount === button.count) return event;
 
-  const buttons = event.buttons.map((b) =>
-    b.id === buttonId ? { ...b, count: nextCount } : b,
+  const buttons = normalized.buttons.map((b) =>
+    b.id === buttonId
+      ? { ...b, count: b.count + 1, pendingCount: b.pendingCount + 1 }
+      : b,
   );
-  const updated = await saveEvent({ ...event, buttons });
+  const updated = await saveEvent({ ...normalized, buttons });
   const tapped = updated.buttons.find((b) => b.id === buttonId)!;
   await appendTapLog({
     timestamp: new Date().toISOString(),
@@ -181,7 +220,63 @@ export async function applyTap(
     category: tapped.category,
     icon: tapped.icon,
     color: tapped.color,
-    delta,
+    delta: 1,
   });
   return updated;
+}
+
+export async function undoDrink(event: BarEvent, buttonId: string): Promise<BarEvent> {
+  const normalized = normalizeEvent(event);
+  const button = normalized.buttons.find((b) => b.id === buttonId);
+  if (!button || button.count <= 0) return normalized;
+
+  const buttons = normalized.buttons.map((b) =>
+    b.id === buttonId
+      ? {
+          ...b,
+          count: Math.max(0, b.count - 1),
+          pendingCount: b.pendingCount > 0 ? b.pendingCount - 1 : 0,
+        }
+      : b,
+  );
+  const updated = await saveEvent({ ...normalized, buttons });
+  const tapped = updated.buttons.find((b) => b.id === buttonId)!;
+  await appendTapLog({
+    timestamp: new Date().toISOString(),
+    eventId: updated.id,
+    buttonId: tapped.id,
+    buttonName: tapped.name,
+    category: tapped.category,
+    icon: tapped.icon,
+    color: tapped.color,
+    delta: -1,
+  });
+  return updated;
+}
+
+export async function serveDrink(
+  event: BarEvent,
+  buttonId: string,
+  amount = 1,
+): Promise<BarEvent> {
+  const normalized = normalizeEvent(event);
+  const serveAmount = normalizeCount(amount);
+  if (serveAmount <= 0) return normalized;
+  const button = normalized.buttons.find((b) => b.id === buttonId);
+  if (!button || button.pendingCount <= 0) return normalized;
+
+  const buttons = normalized.buttons.map((b) =>
+    b.id === buttonId
+      ? { ...b, pendingCount: Math.max(0, b.pendingCount - serveAmount) }
+      : b,
+  );
+  return saveEvent({ ...normalized, buttons });
+}
+
+export async function applyTap(
+  event: BarEvent,
+  buttonId: string,
+  delta: 1 | -1,
+): Promise<BarEvent> {
+  return delta > 0 ? orderDrink(event, buttonId) : undoDrink(event, buttonId);
 }

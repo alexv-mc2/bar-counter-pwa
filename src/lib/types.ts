@@ -53,6 +53,7 @@ export interface DrinkButtonConfig {
 
 export interface DrinkButton extends DrinkButtonConfig {
   count: number;
+  pendingCount: number;
 }
 
 export interface BarEvent {

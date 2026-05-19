@@ -12,7 +12,7 @@ import { DrinkGridButton, type DrinkCardScale } from "@/components/DrinkGridButt
 import { EditButtonModal } from "@/components/EditButtonModal";
 import { EventResultsView } from "@/components/EventResultsView";
 import { buildEventCsv, downloadCsv, eventCsvFilename } from "@/lib/csv/export";
-import { formatEventDateTime } from "@/lib/events/results";
+import { formatEventDateTime, getPendingQueue } from "@/lib/events/results";
 import { t } from "@/lib/i18n/messages";
 import {
   NavCurrentIcon,
@@ -21,14 +21,17 @@ import {
   NavTemplateIcon,
 } from "@/lib/ui/icons";
 import {
-  applyTap,
   closeActiveEvent,
   createEvent,
+  deleteEvent,
   getActiveEvent,
   getEvent,
   getTapLogsForEvent,
   listEvents,
+  orderDrink,
+  serveDrink,
   setActiveEvent,
+  undoDrink,
   updateButton,
 } from "@/lib/storage/events";
 import {
@@ -48,6 +51,7 @@ import type { BarEvent, ButtonCountPreset, DrinkButton, Locale } from "@/lib/typ
 
 type Screen = "home" | "create" | "event" | "history";
 type Messages = ReturnType<typeof t>;
+type EventMessage = "finishBlockedByQueue";
 type ProductGridStyle = CSSProperties & {
   "--rbbc-grid-cols": number;
   "--rbbc-grid-rows": number;
@@ -212,6 +216,46 @@ function StopSquareIcon() {
   );
 }
 
+function QueueIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 4h8M4 8h8M4 12h8" />
+      <circle cx="2" cy="4" r="0.75" fill="currentColor" stroke="none" />
+      <circle cx="2" cy="8" r="0.75" fill="currentColor" stroke="none" />
+      <circle cx="2" cy="12" r="0.75" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2 4h12M6 4V2h4v2M5 6v7M8 6v7M11 6v7" />
+      <path d="M4 4l1 10h6l1-10" />
+    </svg>
+  );
+}
+
 function BackArrowIcon() {
   return (
     <svg
@@ -322,6 +366,7 @@ function SidePanel({
   locale,
   m,
   openResults,
+  openQueue,
   goHistory,
   openTemplate,
   openSettings,
@@ -331,6 +376,7 @@ function SidePanel({
   locale: Locale;
   m: Messages;
   openResults: () => void;
+  openQueue: () => void;
   goHistory: () => void;
   openTemplate: () => void;
   openSettings: () => void;
@@ -357,6 +403,9 @@ function SidePanel({
       <div className="divide-y divide-stone-200">
         <PanelButton icon={<BarChartIcon />} onClick={openResults}>
           {m.results}
+        </PanelButton>
+        <PanelButton icon={<QueueIcon />} onClick={openQueue}>
+          {m.queue}
         </PanelButton>
         <PanelButton icon={<NavHistoryIcon className="h-5 w-5" />} onClick={goHistory}>
           {m.history}
@@ -822,6 +871,166 @@ function PinPromptModal({
   );
 }
 
+function QueueModal({
+  event,
+  m,
+  onServe,
+  onClose,
+}: {
+  event: BarEvent;
+  m: Messages;
+  onServe: (buttonId: string, amount: number) => void;
+  onClose: () => void;
+}) {
+  const queuedDrinks = getPendingQueue(event).drinks;
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+
+  const getAmount = (button: DrinkButton) => {
+    const value = Number(amounts[button.id] ?? "1");
+    if (!Number.isFinite(value)) return 1;
+    return Math.min(button.pendingCount, Math.max(1, Math.floor(value)));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-950/55 p-4 sm:items-center">
+      <div
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-red-100 bg-[#fffdfa] shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="queue-title"
+      >
+        <div className="overflow-y-auto p-6">
+          <h2 id="queue-title" className="text-4xl font-black tracking-tight text-stone-950">
+            {m.queue}
+          </h2>
+          {queuedDrinks.length === 0 ? (
+            <p className="mt-5 rounded-2xl border border-stone-200 bg-white px-4 py-8 text-center text-lg font-bold text-stone-400">
+              {m.queueEmpty}
+            </p>
+          ) : (
+            <ul className="mt-5 space-y-3">
+              {queuedDrinks.map((button) => (
+                <li
+                  key={button.id}
+                  className="rounded-2xl border border-red-100 bg-white/90 p-4 shadow-[0_4px_16px_rgba(120,53,15,0.08)]"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-2xl font-black text-stone-950">{button.name}</p>
+                      <p className="text-sm font-black uppercase tracking-wide text-stone-500">
+                        {m.queueCount}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-red-700 px-4 py-2 text-2xl font-black leading-none text-white shadow-[0_4px_10px_rgba(185,28,28,0.26)]">
+                      {button.pendingCount}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_minmax(0,1.5fr)]">
+                    <button
+                      type="button"
+                      onClick={() => onServe(button.id, 1)}
+                      className="min-h-12 rounded-2xl border-2 border-stone-300 bg-white px-4 py-2 font-black text-stone-800 active:bg-stone-100"
+                    >
+                      {m.serveOne}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onServe(button.id, button.pendingCount)}
+                      className="min-h-12 rounded-2xl bg-red-700 px-4 py-2 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.20)] active:bg-red-800"
+                    >
+                      {m.serveAll}
+                    </button>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={button.pendingCount}
+                        value={amounts[button.id] ?? "1"}
+                        onChange={(event) =>
+                          setAmounts((current) => ({
+                            ...current,
+                            [button.id]: event.target.value,
+                          }))
+                        }
+                        className="min-h-12 min-w-0 flex-1 rounded-2xl border-2 border-stone-200 bg-white px-3 text-center text-lg font-black text-stone-950 focus:border-red-600 focus:outline-none"
+                        aria-label={m.serveAmount}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => onServe(button.id, getAmount(button))}
+                        className="min-h-12 rounded-2xl border-2 border-red-200 bg-white px-4 py-2 font-black text-red-700 active:bg-red-50"
+                      >
+                        {m.serveAmount}
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="border-t border-red-100 bg-white/80 p-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-14 w-full rounded-2xl border-2 border-stone-300 bg-white px-4 py-3 font-black text-stone-700 active:bg-stone-100"
+          >
+            {m.close}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteEventConfirmModal({
+  event,
+  m,
+  onConfirm,
+  onCancel,
+}: {
+  event: BarEvent;
+  m: Messages;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-950/55 p-4 sm:items-center">
+      <div
+        className="w-full max-w-md rounded-3xl border border-red-100 bg-[#fffdfa] p-6 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-event-title"
+      >
+        <h2 id="delete-event-title" className="text-3xl font-black text-stone-950">
+          {m.deleteEventQuestion}
+        </h2>
+        <p className="mt-3 text-xl font-black text-stone-950">{event.name}</p>
+        <p className="mt-2 text-base font-semibold leading-snug text-stone-600">
+          {m.deleteEventWarning}
+        </p>
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-14 flex-1 rounded-2xl border-2 border-stone-300 bg-white px-4 py-3 font-black text-stone-700 active:bg-stone-100"
+          >
+            {m.cancel}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="min-h-14 flex-1 rounded-2xl bg-red-700 px-4 py-3 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800"
+          >
+            {m.delete}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function BarCounterApp() {
   const [locale, setLocaleState] = useState<Locale>("ru");
   const [screen, setScreen] = useState<Screen>("home");
@@ -829,14 +1038,17 @@ export function BarCounterApp() {
   const [activeEvent, setActiveEventState] = useState<BarEvent | null>(null);
   const [eventName, setEventName] = useState("");
   const [undoMode, setUndoMode] = useState(false);
+  const [serveMode, setServeMode] = useState(false);
+  const [eventMessage, setEventMessage] = useState<EventMessage | null>(null);
   const [editingButton, setEditingButton] = useState<DrinkButton | null>(null);
   const [resultsEvent, setResultsEvent] = useState<BarEvent | null>(null);
   const [templateOpen, setTemplateOpen] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [deleteCandidate, setDeleteCandidate] = useState<BarEvent | null>(null);
   const [pinEnabled, setPinEnabledState] = useState(false);
-  const [pendingProtectedAction, setPendingProtectedAction] = useState<(() => void) | null>(
-    null,
-  );
+  const [pendingProtectedAction, setPendingProtectedAction] =
+    useState<(() => void | Promise<void>) | null>(null);
   const [buttonCountPresetState, setButtonCountPresetState] =
     useState<ButtonCountPreset>(16);
 
@@ -874,9 +1086,9 @@ export function BarCounterApp() {
     setLocaleState(next);
   };
 
-  const requestProtectedAction = (action: () => void) => {
+  const requestProtectedAction = (action: () => void | Promise<void>) => {
     if (!pinEnabled) {
-      action();
+      void action();
       return;
     }
     setPendingProtectedAction(() => action);
@@ -886,7 +1098,7 @@ export function BarCounterApp() {
     if (!verifyPin(pin)) return false;
     const action = pendingProtectedAction;
     setPendingProtectedAction(null);
-    action?.();
+    void action?.();
     return true;
   };
 
@@ -908,20 +1120,34 @@ export function BarCounterApp() {
     await refresh();
   };
 
-  const handleTap = async (buttonId: string) => {
-    if (!activeEvent) return;
-    if (undoMode) {
-      const updated = await applyTap(activeEvent, buttonId, -1);
-      setActiveEventState(updated);
-      setUndoMode(false);
-      await refresh();
-      if (resultsEvent?.id === updated.id) setResultsEvent(updated);
-      return;
-    }
-    const updated = await applyTap(activeEvent, buttonId, 1);
+  const applyEventUpdate = async (updated: BarEvent) => {
     setActiveEventState(updated);
     await refresh();
     if (resultsEvent?.id === updated.id) setResultsEvent(updated);
+    if (getPendingQueue(updated).total === 0) setEventMessage(null);
+  };
+
+  const handleTap = async (buttonId: string) => {
+    if (!activeEvent) return;
+    if (undoMode) {
+      const updated = await undoDrink(activeEvent, buttonId);
+      setUndoMode(false);
+      await applyEventUpdate(updated);
+      return;
+    }
+    if (serveMode) {
+      const updated = await serveDrink(activeEvent, buttonId, 1);
+      await applyEventUpdate(updated);
+      return;
+    }
+    const updated = await orderDrink(activeEvent, buttonId);
+    await applyEventUpdate(updated);
+  };
+
+  const handleServe = async (buttonId: string, amount: number) => {
+    if (!activeEvent) return;
+    const updated = await serveDrink(activeEvent, buttonId, amount);
+    await applyEventUpdate(updated);
   };
 
   const openResults = async (event: BarEvent) => {
@@ -939,8 +1165,39 @@ export function BarCounterApp() {
   const handleCloseEvent = async () => {
     await closeActiveEvent();
     setUndoMode(false);
+    setServeMode(false);
+    setEventMessage(null);
     setScreen("home");
     await refresh();
+  };
+
+  const requestFinishEvent = () => {
+    if (!activeEvent) return;
+    if (getPendingQueue(activeEvent).total > 0) {
+      setEventMessage("finishBlockedByQueue");
+      return;
+    }
+    requestProtectedAction(() => handleCloseEvent());
+  };
+
+  const performDeleteEvent = async (event: BarEvent) => {
+    await deleteEvent(event.id);
+    if (activeEvent?.id === event.id) {
+      setActiveEventState(null);
+      setUndoMode(false);
+      setServeMode(false);
+      setEventMessage(null);
+      setScreen("home");
+    }
+    if (resultsEvent?.id === event.id) setResultsEvent(null);
+    await refresh();
+  };
+
+  const confirmDeleteEvent = () => {
+    if (!deleteCandidate) return;
+    const event = deleteCandidate;
+    setDeleteCandidate(null);
+    requestProtectedAction(() => performDeleteEvent(event));
   };
 
   const handleSaveEdit = async (patch: Partial<DrinkButton>) => {
@@ -960,6 +1217,8 @@ export function BarCounterApp() {
   };
 
   const totalCount = activeEvent?.buttons.reduce((s, b) => s + b.count, 0) ?? 0;
+  const pendingQueue = activeEvent ? getPendingQueue(activeEvent) : null;
+  const pendingQueueTotal = pendingQueue?.total ?? 0;
   const heroEvent = screen === "event" ? activeEvent : null;
   const sortedButtons = activeEvent
     ? [...activeEvent.buttons].sort((a, b) => a.slotIndex - b.slotIndex)
@@ -983,10 +1242,19 @@ export function BarCounterApp() {
   };
   const goHistory = () => setScreen("history");
   const openTemplate = () => setTemplateOpen(true);
+  const openQueue = () => setQueueOpen(true);
   const openSettings = () => setSettingsOpen(true);
   const openActiveResults = () => {
     if (!activeEvent) return;
     void openResults(activeEvent);
+  };
+  const toggleUndoMode = () => {
+    setServeMode(false);
+    setUndoMode((current) => !current);
+  };
+  const toggleServeMode = () => {
+    setUndoMode(false);
+    setServeMode((current) => !current);
   };
 
   return (
@@ -1157,6 +1425,14 @@ export function BarCounterApp() {
                       >
                         {m.exportCsv}
                       </button>
+                      <button
+                        type="button"
+                        className="flex min-h-12 items-center gap-2 rounded-2xl border-2 border-red-200 bg-white px-5 py-2 text-base font-black text-red-700 active:bg-red-50"
+                        onClick={() => setDeleteCandidate(event)}
+                      >
+                        <TrashIcon />
+                        {m.delete}
+                      </button>
                     </div>
                   </li>
                 ))}
@@ -1173,21 +1449,32 @@ export function BarCounterApp() {
               <IconButton
                 icon={<UndoIcon />}
                 variant={undoMode ? "solid" : "outline"}
-                onClick={() => setUndoMode((current) => !current)}
+                onClick={toggleUndoMode}
               >
                 {undoMode ? m.undoMode : m.undo}
+              </IconButton>
+              <IconButton
+                icon={<QueueIcon />}
+                variant={serveMode ? "solid" : "outline"}
+                onClick={toggleServeMode}
+              >
+                {serveMode ? m.serveMode : m.serve}
               </IconButton>
               {activeEvent.isActive && (
                 <IconButton
                   icon={<StopSquareIcon />}
                   variant="danger"
-                  onClick={() => requestProtectedAction(() => void handleCloseEvent())}
+                  onClick={requestFinishEvent}
                 >
                   {m.closeEvent}
                 </IconButton>
               )}
             </div>
             <div className="flex flex-wrap gap-3">
+              <IconButton icon={<QueueIcon />} variant="outline" onClick={openQueue}>
+                {m.queue}
+                {pendingQueueTotal > 0 ? ` ${pendingQueueTotal}` : ""}
+              </IconButton>
               <IconButton
                 icon={<BarChartIcon />}
                 variant="outline"
@@ -1203,6 +1490,11 @@ export function BarCounterApp() {
                 {m.exportCsv}
               </IconButton>
             </div>
+            {eventMessage && (
+              <p className="w-full rounded-2xl bg-red-50 px-4 py-3 text-center text-sm font-black text-red-700">
+                {m[eventMessage]}
+              </p>
+            )}
           </div>
 
           <div className="flex min-h-0 flex-1 gap-4 overflow-hidden px-4 py-4 md:px-6 xl:px-8">
@@ -1217,6 +1509,7 @@ export function BarCounterApp() {
                     key={button.id}
                     button={button}
                     undoMode={undoMode}
+                    serveMode={serveMode}
                     cardScale={gridLayout.cardScale}
                     onTap={(id) => void handleTap(id)}
                     onLongPress={setEditingButton}
@@ -1230,6 +1523,7 @@ export function BarCounterApp() {
               locale={locale}
               m={m}
               openResults={openActiveResults}
+              openQueue={openQueue}
               goHistory={goHistory}
               openTemplate={openTemplate}
               openSettings={openSettings}
@@ -1266,6 +1560,15 @@ export function BarCounterApp() {
         />
       )}
 
+      {queueOpen && activeEvent && (
+        <QueueModal
+          event={activeEvent}
+          m={m}
+          onServe={(buttonId, amount) => void handleServe(buttonId, amount)}
+          onClose={() => setQueueOpen(false)}
+        />
+      )}
+
       {settingsOpen && (
         <SettingsModal
           locale={locale}
@@ -1274,6 +1577,15 @@ export function BarCounterApp() {
           onLocaleChange={changeLocale}
           onPinEnabledChange={setPinEnabledState}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {deleteCandidate && (
+        <DeleteEventConfirmModal
+          event={deleteCandidate}
+          m={m}
+          onConfirm={confirmDeleteEvent}
+          onCancel={() => setDeleteCandidate(null)}
         />
       )}
 

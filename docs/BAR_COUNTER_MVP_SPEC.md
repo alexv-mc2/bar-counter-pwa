@@ -8,8 +8,10 @@ Tablet web app for bartenders to count drinks sold during bar events. Runs local
 
 - Installable PWA (manifest + service worker shell cache)
 - Create/continue/close events with local history
-- 16 configurable drink buttons (name, template, category, icon, color, count badge)
+- 16 configurable drink buttons (name, template, category, icon, color, pending queue badge)
 - Tap +1; Undo mode then tap −1 (floor at 0; exits after one tap attempt)
+- Serve mode (**Выдать** / **Ausgeben**) decrements pending queue only
+- Queue view shows pending drinks and allows serve 1 / serve all / custom serve amount
 - Long press 5s opens edit modal
 - RU default UI; DE language switch (localStorage)
 - On-screen results view (**Итоги** / **Ergebnis**) before export
@@ -27,7 +29,7 @@ Tablet web app for bartenders to count drinks sold during bar events. Runs local
 
 | Layer | Use |
 |-------|-----|
-| IndexedDB `events` | Bar events and button counts |
+| IndexedDB `events` | Bar events, ordered totals, and pending queue counts |
 | IndexedDB `tapLogs` | Tap log entries (indexed by `eventId`) |
 | IndexedDB `buttonTemplate` | Latest 16-button layout snapshot |
 | localStorage | `rbbc.locale`, `rbbc.lastActiveEventId` |
@@ -37,22 +39,24 @@ No backend or cloud persistence.
 ## Data model (internal)
 
 - **BarEvent**: id, name, createdAt, updatedAt, isActive, buttons[]
-- **DrinkButton**: id, slotIndex, name, templateId?, category, icon, color, count
+- **DrinkButton**: id, slotIndex, name, templateId?, category, icon, color, count, pendingCount
 - **TapLogEntry**: id, timestamp, eventId, buttonId, buttonName, category, icon, color, delta (+1/−1)
+
+`count` is the ordered total used for results and CSV. `pendingCount` is the operational queue shown on product button badges and queue view. Legacy events without `pendingCount` initialize it to 0.
 
 CSV and results views expose only human-readable fields (no internal IDs, category, icon, color).
 
 ## Results view
 
 - Open from active event or history (**Итоги** / **Ergebnis**)
-- Shows event name, date/time, status, total drinks, per-drink counts (count > 0 only, sorted by count desc then name)
+- Shows event name, date/time, status, total ordered drinks, per-drink ordered counts (count > 0 only, sorted by count desc then name)
 - Empty state when no drinks counted
 - Actions: Export CSV, Back
 
 ## CSV report
 
 - UTF-8 BOM for Excel/Numbers (Cyrillic)
-- Section A: event name, date, total; drink name + quantity (count > 0 only)
+- Section A: event name, date, ordered total; drink name + ordered quantity (count > 0 only)
 - Section B: tap log — time, drink name, action (+1/−1)
 - Labels localized (RU/DE) per current UI language
 - Filename: `{event-name}-{YYYY-MM-DD}.csv`
@@ -63,6 +67,7 @@ After page refresh, the following must remain on the same device/browser profile
 
 - Events and history
 - Per-button counts
+- Pending queue counts
 - Button configuration edits
 - Selected RU/DE language (localStorage)
 

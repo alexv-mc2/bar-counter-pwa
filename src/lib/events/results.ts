@@ -5,6 +5,11 @@ export interface EventTotals {
   drinks: DrinkButton[];
 }
 
+export interface QueueTotals {
+  total: number;
+  drinks: DrinkButton[];
+}
+
 export function getEventTotals(event: BarEvent, locale: Locale): EventTotals {
   const total = event.buttons.reduce((sum, button) => sum + button.count, 0);
   const drinks = event.buttons
@@ -13,6 +18,14 @@ export function getEventTotals(event: BarEvent, locale: Locale): EventTotals {
       if (b.count !== a.count) return b.count - a.count;
       return a.name.localeCompare(b.name, locale === "de" ? "de" : "ru");
     });
+  return { total, drinks };
+}
+
+export function getPendingQueue(event: BarEvent): QueueTotals {
+  const total = event.buttons.reduce((sum, button) => sum + button.pendingCount, 0);
+  const drinks = event.buttons
+    .filter((button) => button.pendingCount > 0)
+    .sort((a, b) => a.slotIndex - b.slotIndex);
   return { total, drinks };
 }
 
