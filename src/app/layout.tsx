@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "Bar Counter",
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
   },
 };
 
@@ -29,7 +29,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#f59e0b",
+  themeColor: "#DC2626",
 };
 
 export default function RootLayout({
@@ -39,7 +39,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" className={`${geistSans.variable} ${geistMono.variable} h-full`}>
-      <body className="min-h-dvh bg-slate-950 font-sans antialiased">
+      <body className="min-h-dvh font-sans antialiased">
         <ServiceWorkerRegister />
         {children}
       </body>

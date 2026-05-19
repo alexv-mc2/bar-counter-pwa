@@ -4,8 +4,8 @@
   "description": "Local-first tablet bar drink counter",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#f59e0b",
+  "background_color": "#FAF8F4",
+  "theme_color": "#DC2626",
   "orientation": "landscape",
   "lang": "ru",
   "icons": [

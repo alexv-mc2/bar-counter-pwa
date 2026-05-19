@@ -64,14 +64,21 @@ export function DrinkGridButton({
       onPointerCancel={clearTimer}
       onClick={handleClick}
       onContextMenu={(e) => e.preventDefault()}
-      className={`relative flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-2xl p-3 text-center text-white shadow-lg ring-2 ${palette.bg} ${palette.ring} ${undoMode ? "outline outline-4 outline-dashed outline-amber-200" : ""} active:scale-[0.98]`}
+      className={[
+        "relative flex min-h-[130px] select-none flex-col items-center justify-center gap-2 rounded-2xl bg-white p-3 text-center",
+        "shadow-[0_2px_8px_rgba(0,0,0,0.10)] transition-all active:scale-[0.97] active:shadow-sm",
+        undoMode
+          ? "ring-2 ring-dashed ring-red-500 ring-offset-1"
+          : "ring-1 ring-stone-200/80",
+      ].join(" ")}
     >
-      <DrinkIconView icon={button.icon} className="h-8 w-8" />
-      <span className="line-clamp-2 text-sm font-bold leading-tight sm:text-base">
+      <DrinkIconView icon={button.icon} className="h-9 w-9 text-stone-600" />
+      <span className="line-clamp-2 text-sm font-bold leading-tight text-stone-900">
         {button.name}
       </span>
+      <span className={`h-1 w-10 rounded-full opacity-50 ${palette.categoryDot}`} />
       <span
-        className={`absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold ${palette.badge}`}
+        className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full text-sm font-black ${palette.badge}`}
       >
         {button.count}
       </span>

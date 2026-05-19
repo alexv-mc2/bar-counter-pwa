@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 body {
+  background-color: #FAF8F4;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
