@@ -1,0 +1,48 @@
+import type { DrinkTemplate } from "@/lib/types";
+
+export const DRINK_TEMPLATES: DrinkTemplate[] = [
+  { id: "mojito", category: "cocktail", icon: "cocktail", color: "green", labels: { ru: "Мохито", de: "Mojito" } },
+  { id: "margarita", category: "cocktail", icon: "cocktail", color: "amber", labels: { ru: "Маргарита", de: "Margarita" } },
+  { id: "negroni", category: "cocktail", icon: "cocktail", color: "red", labels: { ru: "Негрони", de: "Negroni" } },
+  { id: "old-fashioned", category: "cocktail", icon: "cocktail", color: "amber", labels: { ru: "Олд фэшн", de: "Old Fashioned" } },
+  { id: "daiquiri", category: "cocktail", icon: "cocktail", color: "blue", labels: { ru: "Дайкири", de: "Daiquiri" } },
+  { id: "martini", category: "cocktail", icon: "cocktail", color: "slate", labels: { ru: "Мартини", de: "Martini" } },
+  { id: "cosmopolitan", category: "cocktail", icon: "cocktail", color: "red", labels: { ru: "Космополитен", de: "Cosmopolitan" } },
+  { id: "whiskey-sour", category: "cocktail", icon: "cocktail", color: "amber", labels: { ru: "Виски сауэр", de: "Whiskey Sour" } },
+  { id: "pina-colada", category: "cocktail", icon: "cocktail", color: "amber", labels: { ru: "Пина колада", de: "Piña Colada" } },
+  { id: "moscow-mule", category: "cocktail", icon: "cocktail", color: "green", labels: { ru: "Московский мул", de: "Moscow Mule" } },
+  { id: "aperol-spritz", category: "cocktail", icon: "wine", color: "red", labels: { ru: "Апероль шприц", de: "Aperol Spritz" } },
+  { id: "gin-tonic", category: "cocktail", icon: "cocktail", color: "blue", labels: { ru: "Джин-тоник", de: "Gin Tonic" } },
+  { id: "caipirinha", category: "cocktail", icon: "cocktail", color: "green", labels: { ru: "Кайпиринья", de: "Caipirinha" } },
+  { id: "manhattan", category: "cocktail", icon: "cocktail", color: "red", labels: { ru: "Манхэттен", de: "Manhattan" } },
+  { id: "paloma", category: "cocktail", icon: "cocktail", color: "green", labels: { ru: "Палома", de: "Paloma" } },
+  { id: "espresso-martini", category: "cocktail", icon: "coffee", color: "slate", labels: { ru: "Эспрессо мартини", de: "Espresso Martini" } },
+  { id: "bloody-mary", category: "cocktail", icon: "cocktail", color: "red", labels: { ru: "Кровавая Мэри", de: "Bloody Mary" } },
+  { id: "mai-tai", category: "cocktail", icon: "cocktail", color: "amber", labels: { ru: "Май тай", de: "Mai Tai" } },
+  { id: "sidecar", category: "cocktail", icon: "cocktail", color: "amber", labels: { ru: "Сайдкар", de: "Sidecar" } },
+  { id: "tom-collins", category: "cocktail", icon: "cocktail", color: "blue", labels: { ru: "Том Коллинз", de: "Tom Collins" } },
+  { id: "virgin-mojito", category: "mocktail", icon: "mocktail", color: "green", labels: { ru: "Вирджин мохито", de: "Virgin Mojito" } },
+  { id: "shirley-temple", category: "mocktail", icon: "mocktail", color: "red", labels: { ru: "Ширли Темпл", de: "Shirley Temple" } },
+  { id: "virgin-pina-colada", category: "mocktail", icon: "mocktail", color: "amber", labels: { ru: "Вирджин пина колада", de: "Virgin Piña Colada" } },
+  { id: "citrus-fizz", category: "mocktail", icon: "mocktail", color: "blue", labels: { ru: "Цитрусовый физз", de: "Citrus Fizz" } },
+  { id: "berry-smash", category: "mocktail", icon: "mocktail", color: "purple", labels: { ru: "Ягодный смэш", de: "Berry Smash" } },
+  { id: "espresso", category: "coffee", icon: "coffee", color: "slate", labels: { ru: "Эспрессо", de: "Espresso" } },
+  { id: "americano", category: "coffee", icon: "coffee", color: "slate", labels: { ru: "Американо", de: "Americano" } },
+  { id: "cappuccino", category: "coffee", icon: "coffee", color: "amber", labels: { ru: "Капучино", de: "Cappuccino" } },
+  { id: "latte", category: "coffee", icon: "coffee", color: "amber", labels: { ru: "Латте", de: "Latte" } },
+  { id: "flat-white", category: "coffee", icon: "coffee", color: "amber", labels: { ru: "Флэт уайт", de: "Flat White" } },
+  { id: "mocha", category: "coffee", icon: "coffee", color: "purple", labels: { ru: "Мокка", de: "Mocha" } },
+  { id: "macchiato", category: "coffee", icon: "coffee", color: "slate", labels: { ru: "Маккиато", de: "Macchiato" } },
+  { id: "cortado", category: "coffee", icon: "coffee", color: "slate", labels: { ru: "Кортадо", de: "Cortado" } },
+  { id: "iced-latte", category: "coffee", icon: "coffee", color: "blue", labels: { ru: "Айс латте", de: "Iced Latte" } },
+  { id: "raf", category: "coffee", icon: "coffee", color: "amber", labels: { ru: "Раф", de: "Raf Coffee" } },
+  { id: "cola", category: "soft", icon: "cup", color: "slate", labels: { ru: "Кола", de: "Cola" } },
+  { id: "water", category: "soft", icon: "water", color: "blue", labels: { ru: "Вода", de: "Wasser" } },
+  { id: "beer", category: "other", icon: "beer", color: "amber", labels: { ru: "Пиво", de: "Bier" } },
+  { id: "wine", category: "other", icon: "wine", color: "red", labels: { ru: "Вино", de: "Wein" } },
+  { id: "shot", category: "other", icon: "shot", color: "purple", labels: { ru: "Шот", de: "Shot" } },
+];
+
+export function getTemplateById(id: string): DrinkTemplate | undefined {
+  return DRINK_TEMPLATES.find((t) => t.id === id);
+}
