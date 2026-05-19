@@ -32,11 +32,17 @@ import {
   updateButton,
 } from "@/lib/storage/events";
 import {
+  clearPin,
   getButtonCountPreset,
   getLastActiveEventId,
   getLocale,
+  hasPin,
+  isValidPin,
+  normalizeButtonCountPreset,
   setButtonCountPreset,
   setLocale,
+  setPin,
+  verifyPin,
 } from "@/lib/storage/preferences";
 import type { BarEvent, ButtonCountPreset, DrinkButton, Locale } from "@/lib/types";
 
@@ -50,6 +56,8 @@ type ProductGridStyle = CSSProperties & {
 };
 
 const BUTTON_COUNT_PRESETS: readonly ButtonCountPreset[] = [4, 5, 6, 7, 8, 12, 16];
+const MIN_BUTTON_COUNT = 1;
+const MAX_BUTTON_COUNT = 16;
 
 function getProductGridLayout(count: number): {
   columns: number;
@@ -58,6 +66,15 @@ function getProductGridLayout(count: number): {
   mobileRows: number;
   cardScale: DrinkCardScale;
 } {
+  if (count <= 1) {
+    return { columns: 1, rows: 1, mobileColumns: 1, mobileRows: 1, cardScale: "large" };
+  }
+  if (count <= 2) {
+    return { columns: 2, rows: 1, mobileColumns: 1, mobileRows: 2, cardScale: "large" };
+  }
+  if (count <= 3) {
+    return { columns: 3, rows: 1, mobileColumns: 2, mobileRows: 2, cardScale: "large" };
+  }
   if (count <= 4) {
     return { columns: 2, rows: 2, mobileColumns: 2, mobileRows: 2, cardScale: "large" };
   }
@@ -75,7 +92,9 @@ function getProductGridLayout(count: number): {
 
 function formatButtonCountPreset(preset: ButtonCountPreset, locale: Locale) {
   if (locale === "de") return `${preset} Tasten`;
-  return preset === 4 ? "4 кнопки" : `${preset} кнопок`;
+  if (preset === 1) return "1 кнопка";
+  if (preset >= 2 && preset <= 4) return `${preset} кнопки`;
+  return `${preset} кнопок`;
 }
 
 function RollingBadgerLogo() {
@@ -305,6 +324,7 @@ function SidePanel({
   openResults,
   goHistory,
   openTemplate,
+  openSettings,
 }: {
   activeEvent: BarEvent;
   totalCount: number;
@@ -313,6 +333,7 @@ function SidePanel({
   openResults: () => void;
   goHistory: () => void;
   openTemplate: () => void;
+  openSettings: () => void;
 }) {
   return (
     <aside className="hidden w-72 shrink-0 flex-col overflow-hidden rounded-2xl border border-red-200/70 bg-white/85 shadow-[0_4px_18px_rgba(120,53,15,0.10)] xl:flex">
@@ -343,7 +364,7 @@ function SidePanel({
         <PanelButton icon={<NavTemplateIcon className="h-5 w-5" />} onClick={openTemplate}>
           {m.drinkTemplate}
         </PanelButton>
-        <PanelButton icon={<NavSettingsIcon className="h-5 w-5" />} disabled>
+        <PanelButton icon={<NavSettingsIcon className="h-5 w-5" />} onClick={openSettings}>
           {m.settings}
         </PanelButton>
       </div>
@@ -392,6 +413,7 @@ function BottomNav({
   goEvent,
   goHistory,
   openTemplate,
+  openSettings,
 }: {
   screen: Screen;
   activeEvent: BarEvent | null;
@@ -399,6 +421,7 @@ function BottomNav({
   goEvent: () => void;
   goHistory: () => void;
   openTemplate: () => void;
+  openSettings: () => void;
 }) {
   const itemClass =
     "flex min-h-16 flex-1 flex-col items-center justify-center gap-1 border-t-4 px-2 text-sm font-black";
@@ -438,8 +461,8 @@ function BottomNav({
       </button>
       <button
         type="button"
-        disabled
-        className={`${itemClass} border-transparent text-stone-300 opacity-45`}
+        onClick={openSettings}
+        className={`${itemClass} border-transparent text-stone-500`}
       >
         <NavSettingsIcon className="h-7 w-7" />
         {m.settings}
@@ -461,7 +484,11 @@ function ButtonTemplateModal({
   onApply: (preset: ButtonCountPreset) => void;
   onClose: () => void;
 }) {
-  const [draftPreset, setDraftPreset] = useState<ButtonCountPreset>(currentPreset);
+  const [draftValue, setDraftValue] = useState(String(currentPreset));
+  const draftPreset = normalizeButtonCountPreset(Number(draftValue));
+  const stepDraft = (delta: number) => {
+    setDraftValue(String(normalizeButtonCountPreset(draftPreset + delta)));
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-950/55 p-4 sm:items-center">
@@ -477,6 +504,35 @@ function ButtonTemplateModal({
         <p className="mt-2 text-base font-black uppercase tracking-wide text-stone-500">
           {m.buttonCountLabel}
         </p>
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => stepDraft(-1)}
+            className="flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-stone-300 bg-white text-3xl font-black text-stone-900 active:bg-stone-100"
+            aria-label="-1"
+          >
+            −
+          </button>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={MIN_BUTTON_COUNT}
+            max={MAX_BUTTON_COUNT}
+            value={draftValue}
+            onChange={(event) => setDraftValue(event.target.value)}
+            onBlur={() => setDraftValue(String(draftPreset))}
+            className="h-14 min-w-0 flex-1 rounded-2xl border-2 border-red-200 bg-white px-5 text-center text-3xl font-black text-stone-950 focus:border-red-600 focus:outline-none"
+            aria-label={m.buttonCountLabel}
+          />
+          <button
+            type="button"
+            onClick={() => stepDraft(1)}
+            className="flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-stone-300 bg-white text-3xl font-black text-stone-900 active:bg-stone-100"
+            aria-label="+1"
+          >
+            +
+          </button>
+        </div>
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {BUTTON_COUNT_PRESETS.map((preset) => {
             const selected = draftPreset === preset;
@@ -484,7 +540,7 @@ function ButtonTemplateModal({
               <button
                 key={preset}
                 type="button"
-                onClick={() => setDraftPreset(preset)}
+                onClick={() => setDraftValue(String(preset))}
                 className={`min-h-16 rounded-2xl border-2 px-4 py-3 text-lg font-black transition ${
                   selected
                     ? "border-red-700 bg-red-700 text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)]"
@@ -517,6 +573,255 @@ function ButtonTemplateModal({
   );
 }
 
+function SettingsModal({
+  locale,
+  m,
+  pinEnabled,
+  onLocaleChange,
+  onPinEnabledChange,
+  onClose,
+}: {
+  locale: Locale;
+  m: Messages;
+  pinEnabled: boolean;
+  onLocaleChange: (locale: Locale) => void;
+  onPinEnabledChange: (enabled: boolean) => void;
+  onClose: () => void;
+}) {
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [repeatPin, setRepeatPin] = useState("");
+  const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(
+    null,
+  );
+
+  const clearInputs = () => {
+    setCurrentPin("");
+    setNewPin("");
+    setRepeatPin("");
+  };
+
+  const handleSavePin = () => {
+    if (pinEnabled && !verifyPin(currentPin)) {
+      setMessage({ type: "error", text: m.wrongPin });
+      return;
+    }
+    if (!isValidPin(newPin)) {
+      setMessage({ type: "error", text: m.pinMustBeFourDigits });
+      return;
+    }
+    if (newPin !== repeatPin) {
+      setMessage({ type: "error", text: m.pinMismatch });
+      return;
+    }
+    setPin(newPin);
+    onPinEnabledChange(true);
+    clearInputs();
+    setMessage({ type: "success", text: m.pinSaved });
+  };
+
+  const handleResetPin = () => {
+    if (!pinEnabled) return;
+    if (!verifyPin(currentPin)) {
+      setMessage({ type: "error", text: m.wrongPin });
+      return;
+    }
+    clearPin();
+    onPinEnabledChange(false);
+    clearInputs();
+    setMessage({ type: "success", text: m.pinDisabled });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-950/55 p-4 sm:items-center">
+      <div
+        className="w-full max-w-xl rounded-3xl border border-red-100 bg-[#fffdfa] p-6 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+      >
+        <h2 id="settings-title" className="text-3xl font-black text-stone-950">
+          {m.settings}
+        </h2>
+
+        <div className="mt-6 rounded-2xl border border-red-100 bg-white/80 p-4">
+          <p className="mb-3 text-sm font-black uppercase tracking-wide text-stone-500">
+            {m.language}
+          </p>
+          <LanguageSwitcher locale={locale} onChange={onLocaleChange} />
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-red-100 bg-white/80 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-black uppercase tracking-wide text-stone-500">
+              {m.pinCode}
+            </p>
+            <span
+              className={`rounded-lg px-3 py-1 text-xs font-black uppercase ${
+                pinEnabled ? "bg-red-700 text-white" : "bg-stone-200 text-stone-600"
+              }`}
+            >
+              {pinEnabled ? m.changePin : m.setPin}
+            </span>
+          </div>
+
+          {pinEnabled && (
+            <label className="mt-4 block">
+              <span className="mb-1 block text-sm font-black text-stone-600">
+                {m.enterPin}
+              </span>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={currentPin}
+                onChange={(event) => setCurrentPin(event.target.value.replace(/\D/g, ""))}
+                className="h-14 w-full rounded-2xl border-2 border-stone-200 bg-white px-5 text-2xl font-black tracking-[0.3em] text-stone-950 focus:border-red-600 focus:outline-none"
+              />
+            </label>
+          )}
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-sm font-black text-stone-600">
+                {m.newPin}
+              </span>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={newPin}
+                onChange={(event) => setNewPin(event.target.value.replace(/\D/g, ""))}
+                className="h-14 w-full rounded-2xl border-2 border-stone-200 bg-white px-5 text-2xl font-black tracking-[0.3em] text-stone-950 focus:border-red-600 focus:outline-none"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm font-black text-stone-600">
+                {m.repeatPin}
+              </span>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={repeatPin}
+                onChange={(event) => setRepeatPin(event.target.value.replace(/\D/g, ""))}
+                className="h-14 w-full rounded-2xl border-2 border-stone-200 bg-white px-5 text-2xl font-black tracking-[0.3em] text-stone-950 focus:border-red-600 focus:outline-none"
+              />
+            </label>
+          </div>
+
+          {message && (
+            <p
+              className={`mt-3 rounded-xl px-4 py-3 text-sm font-black ${
+                message.type === "error"
+                  ? "bg-red-50 text-red-700"
+                  : "bg-emerald-50 text-emerald-700"
+              }`}
+            >
+              {message.text}
+            </p>
+          )}
+
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={handleSavePin}
+              className="min-h-14 flex-1 rounded-2xl bg-red-700 px-4 py-3 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800"
+            >
+              {m.save}
+            </button>
+            {pinEnabled && (
+              <button
+                type="button"
+                onClick={handleResetPin}
+                className="min-h-14 flex-1 rounded-2xl border-2 border-stone-300 bg-white px-4 py-3 font-black text-stone-700 active:bg-stone-100"
+              >
+                {m.resetPin}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-5 min-h-14 w-full rounded-2xl border-2 border-stone-300 bg-white px-4 py-3 font-black text-stone-700 active:bg-stone-100"
+        >
+          {m.close}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PinPromptModal({
+  m,
+  onSubmit,
+  onCancel,
+}: {
+  m: Messages;
+  onSubmit: (pin: string) => boolean;
+  onCancel: () => void;
+}) {
+  const [pin, setPromptPin] = useState("");
+  const [error, setError] = useState("");
+
+  const submit = () => {
+    if (!onSubmit(pin)) {
+      setError(m.wrongPin);
+      setPromptPin("");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-stone-950/55 p-4 sm:items-center">
+      <div
+        className="w-full max-w-sm rounded-3xl border border-red-100 bg-[#fffdfa] p-6 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pin-prompt-title"
+      >
+        <h2 id="pin-prompt-title" className="text-3xl font-black text-stone-950">
+          {m.enterPin}
+        </h2>
+        <input
+          autoFocus
+          type="password"
+          inputMode="numeric"
+          maxLength={4}
+          value={pin}
+          onChange={(event) => setPromptPin(event.target.value.replace(/\D/g, ""))}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") submit();
+          }}
+          className="mt-5 h-16 w-full rounded-2xl border-2 border-red-200 bg-white px-5 text-center text-3xl font-black tracking-[0.35em] text-stone-950 focus:border-red-600 focus:outline-none"
+        />
+        {error && (
+          <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm font-black text-red-700">
+            {error}
+          </p>
+        )}
+        <div className="mt-5 flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-14 flex-1 rounded-2xl border-2 border-stone-300 bg-white px-4 py-3 font-black text-stone-700 active:bg-stone-100"
+          >
+            {m.cancel}
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            className="min-h-14 flex-1 rounded-2xl bg-red-700 px-4 py-3 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800"
+          >
+            {m.save}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function BarCounterApp() {
   const [locale, setLocaleState] = useState<Locale>("ru");
   const [screen, setScreen] = useState<Screen>("home");
@@ -527,6 +832,11 @@ export function BarCounterApp() {
   const [editingButton, setEditingButton] = useState<DrinkButton | null>(null);
   const [resultsEvent, setResultsEvent] = useState<BarEvent | null>(null);
   const [templateOpen, setTemplateOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [pinEnabled, setPinEnabledState] = useState(false);
+  const [pendingProtectedAction, setPendingProtectedAction] = useState<(() => void) | null>(
+    null,
+  );
   const [buttonCountPresetState, setButtonCountPresetState] =
     useState<ButtonCountPreset>(16);
 
@@ -556,11 +866,28 @@ export function BarCounterApp() {
   useEffect(() => {
     setLocaleState(getLocale());
     setButtonCountPresetState(getButtonCountPreset());
+    setPinEnabledState(hasPin());
   }, []);
 
   const changeLocale = (next: Locale) => {
     setLocale(next);
     setLocaleState(next);
+  };
+
+  const requestProtectedAction = (action: () => void) => {
+    if (!pinEnabled) {
+      action();
+      return;
+    }
+    setPendingProtectedAction(() => action);
+  };
+
+  const submitProtectedPin = (pin: string) => {
+    if (!verifyPin(pin)) return false;
+    const action = pendingProtectedAction;
+    setPendingProtectedAction(null);
+    action?.();
+    return true;
   };
 
   const handleCreate = async () => {
@@ -626,8 +953,9 @@ export function BarCounterApp() {
   };
 
   const handleApplyButtonTemplate = (preset: ButtonCountPreset) => {
-    setButtonCountPreset(preset);
-    setButtonCountPresetState(preset);
+    const normalizedPreset = normalizeButtonCountPreset(preset);
+    setButtonCountPreset(normalizedPreset);
+    setButtonCountPresetState(normalizedPreset);
     setTemplateOpen(false);
   };
 
@@ -655,6 +983,7 @@ export function BarCounterApp() {
   };
   const goHistory = () => setScreen("history");
   const openTemplate = () => setTemplateOpen(true);
+  const openSettings = () => setSettingsOpen(true);
   const openActiveResults = () => {
     if (!activeEvent) return;
     void openResults(activeEvent);
@@ -852,7 +1181,7 @@ export function BarCounterApp() {
                 <IconButton
                   icon={<StopSquareIcon />}
                   variant="danger"
-                  onClick={() => void handleCloseEvent()}
+                  onClick={() => requestProtectedAction(() => void handleCloseEvent())}
                 >
                   {m.closeEvent}
                 </IconButton>
@@ -903,6 +1232,7 @@ export function BarCounterApp() {
               openResults={openActiveResults}
               goHistory={goHistory}
               openTemplate={openTemplate}
+              openSettings={openSettings}
             />
           </div>
         </section>
@@ -915,6 +1245,7 @@ export function BarCounterApp() {
         goEvent={goCurrentEvent}
         goHistory={goHistory}
         openTemplate={openTemplate}
+        openSettings={openSettings}
       />
 
       <EditButtonModal
@@ -932,6 +1263,25 @@ export function BarCounterApp() {
           currentPreset={buttonCountPresetState}
           onApply={handleApplyButtonTemplate}
           onClose={() => setTemplateOpen(false)}
+        />
+      )}
+
+      {settingsOpen && (
+        <SettingsModal
+          locale={locale}
+          m={m}
+          pinEnabled={pinEnabled}
+          onLocaleChange={changeLocale}
+          onPinEnabledChange={setPinEnabledState}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {pendingProtectedAction && (
+        <PinPromptModal
+          m={m}
+          onSubmit={submitProtectedPin}
+          onCancel={() => setPendingProtectedAction(null)}
         />
       )}
 

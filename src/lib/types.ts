@@ -10,7 +10,7 @@ export type DrinkCategory =
   | "tea"
   | "other";
 
-export type ButtonCountPreset = 4 | 5 | 6 | 7 | 8 | 12 | 16;
+export type ButtonCountPreset = number;
 
 export type DrinkColor =
   | "amber"
