@@ -135,9 +135,7 @@ function BackArrowIcon() {
 }
 
 export function BarCounterApp() {
-  const [locale, setLocaleState] = useState<Locale>(() =>
-    typeof window === "undefined" ? "ru" : getLocale(),
-  );
+  const [locale, setLocaleState] = useState<Locale>("ru");
   const [screen, setScreen] = useState<Screen>("home");
   const [events, setEvents] = useState<BarEvent[]>([]);
   const [activeEvent, setActiveEventState] = useState<BarEvent | null>(null);
@@ -168,6 +166,10 @@ export function BarCounterApp() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    setLocaleState(getLocale());
+  }, []);
 
   const changeLocale = (next: Locale) => {
     setLocale(next);
