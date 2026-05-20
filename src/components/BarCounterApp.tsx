@@ -323,20 +323,29 @@ function IconButton({
   children,
   icon,
   variant,
+  emphasis = "normal",
   onClick,
   disabled,
+  className = "",
 }: {
   children: ReactNode;
   icon: ReactNode;
   variant: "solid" | "outline" | "danger";
+  emphasis?: "normal" | "featured";
   onClick?: () => void;
   disabled?: boolean;
+  className?: string;
 }) {
   const variants = {
     solid: "bg-red-700 text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800",
     danger: "bg-red-700 text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800",
     outline:
       "border-2 border-stone-300 bg-white/80 text-stone-950 shadow-sm active:bg-stone-100",
+  };
+  const emphasisClasses = {
+    normal: "min-h-10 px-3 py-2 text-sm sm:min-h-11 sm:px-4 lg:min-h-12",
+    featured:
+      "min-h-12 px-4 py-2.5 text-base shadow-[0_8px_18px_rgba(120,53,15,0.14)] sm:min-h-14 sm:px-5 sm:text-lg lg:text-xl",
   };
 
   return (
@@ -345,8 +354,10 @@ function IconButton({
       onClick={onClick}
       disabled={disabled}
       className={[
-        "flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-45 sm:min-h-11 sm:px-4 lg:min-h-12 lg:rounded-2xl",
+        "flex h-full min-w-0 items-center justify-center gap-2 rounded-xl text-center font-black leading-tight transition disabled:cursor-not-allowed disabled:opacity-45 lg:rounded-2xl",
+        emphasisClasses[emphasis],
         variants[variant],
+        className,
       ].join(" ")}
     >
       {icon}
@@ -1489,7 +1500,7 @@ export function BarCounterApp() {
 
           <div className="rbbc-event-operating-surface flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-red-100/80 bg-[#fffdfa]/90 px-3 py-2 sm:px-4 lg:px-5">
-              <div className="flex w-full flex-wrap items-center gap-2">
+              <div className="grid w-full grid-cols-[minmax(5.8rem,0.8fr)_minmax(11rem,1.9fr)_minmax(11rem,1.9fr)_minmax(5.8rem,0.8fr)_minmax(7rem,1fr)_minmax(7rem,1fr)] items-stretch gap-2">
                 <IconButton
                   icon={<UndoIcon />}
                   variant={undoMode ? "solid" : "outline"}
@@ -1497,13 +1508,25 @@ export function BarCounterApp() {
                 >
                   {undoMode ? m.undoMode : m.undo}
                 </IconButton>
-                <IconButton icon={<QueueIcon />} variant="outline" onClick={openQueue}>
+                <IconButton
+                  icon={<QueueIcon />}
+                  variant="outline"
+                  emphasis="featured"
+                  className="border-red-300 bg-red-50/80 text-red-800"
+                  onClick={openQueue}
+                >
                   {m.queue}
                   {pendingQueueTotal > 0 ? ` ${pendingQueueTotal}` : ""}
                 </IconButton>
                 <IconButton
                   icon={<QueueIcon />}
                   variant={serveMode ? "solid" : "outline"}
+                  emphasis="featured"
+                  className={
+                    serveMode
+                      ? "ring-4 ring-red-200 ring-offset-1"
+                      : "border-red-300 bg-white text-red-800"
+                  }
                   onClick={toggleServeMode}
                 >
                   {serveMode ? m.serveMode : m.serve}
