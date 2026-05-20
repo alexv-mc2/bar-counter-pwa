@@ -65,6 +65,7 @@ const messages = {
     cancel: "Отмена",
     language: "Язык",
     longPressHint: "Удерживайте 5 сек для настройки",
+    rotateDevice: "Поверните устройство горизонтально или используйте планшет",
     categories: {
       cocktail: "Коктейль",
       mocktail: "Безалкогольный коктейль",
@@ -161,6 +162,7 @@ const messages = {
     cancel: "Abbrechen",
     language: "Sprache",
     longPressHint: "5 Sek. halten zum Bearbeiten",
+    rotateDevice: "Bitte Gerät quer halten oder ein Tablet verwenden",
     categories: {
       cocktail: "Cocktail",
       mocktail: "Mocktail",

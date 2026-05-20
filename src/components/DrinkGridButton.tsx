@@ -13,22 +13,25 @@ const SCALE_CLASSES: Record<
   { iconWrap: string; icon: string; name: string; badge: string }
 > = {
   compact: {
-    iconWrap: "h-20 w-24 rounded-2xl",
-    icon: "h-20 w-20",
-    name: "min-h-[2.15rem] text-base md:text-lg xl:text-xl",
-    badge: "h-10 w-10 text-xl md:h-11 md:w-11 md:text-2xl",
+    iconWrap:
+      "h-[clamp(3rem,8.5vh,5rem)] w-[clamp(3.5rem,9vw,6rem)] rounded-2xl",
+    icon: "h-[clamp(3rem,8.25vh,5rem)] w-[clamp(3rem,8.25vh,5rem)]",
+    name: "min-h-[1.85rem] text-[clamp(0.78rem,1.4vw,1.1rem)]",
+    badge: "h-9 w-9 text-lg md:h-10 md:w-10 md:text-xl",
   },
   medium: {
-    iconWrap: "h-28 w-32 rounded-[1.35rem]",
-    icon: "h-28 w-28",
-    name: "min-h-[2.5rem] text-xl md:text-2xl",
-    badge: "h-12 w-12 text-2xl",
+    iconWrap:
+      "h-[clamp(4.5rem,14vh,7rem)] w-[clamp(5rem,14vw,8rem)] rounded-[1.35rem]",
+    icon: "h-[clamp(4.5rem,14vh,7rem)] w-[clamp(4.5rem,14vh,7rem)]",
+    name: "min-h-[2.15rem] text-[clamp(1rem,1.9vw,1.5rem)]",
+    badge: "h-11 w-11 text-xl md:h-12 md:w-12 md:text-2xl",
   },
   large: {
-    iconWrap: "h-36 w-40 rounded-[1.6rem]",
-    icon: "h-36 w-36",
-    name: "min-h-[3rem] text-2xl md:text-3xl",
-    badge: "h-14 w-14 text-3xl",
+    iconWrap:
+      "h-[clamp(5.5rem,20vh,9rem)] w-[clamp(6rem,18vw,10rem)] rounded-[1.6rem]",
+    icon: "h-[clamp(5.5rem,20vh,9rem)] w-[clamp(5.5rem,20vh,9rem)]",
+    name: "min-h-[2.5rem] text-[clamp(1.2rem,2.3vw,1.9rem)]",
+    badge: "h-12 w-12 text-2xl md:h-14 md:w-14 md:text-3xl",
   },
 };
 
@@ -95,7 +98,7 @@ export function DrinkGridButton({
       onClick={handleClick}
       onContextMenu={(e) => e.preventDefault()}
       className={[
-        "group relative flex h-full min-h-0 select-none flex-col items-center justify-center gap-1 overflow-hidden rounded-[18px] border border-red-200/70 bg-white/90 px-3 py-2 text-center",
+        "group relative flex h-full min-h-0 select-none flex-col items-center justify-center gap-1 overflow-hidden rounded-[18px] border border-red-200/70 bg-white/90 px-2 py-1.5 text-center sm:px-3 sm:py-2",
         "shadow-[0_3px_12px_rgba(120,53,15,0.10)] transition-all active:scale-[0.985] active:shadow-sm",
         undoMode && "ring-4 ring-dashed ring-red-500 ring-offset-2",
         serveMode && !undoMode && "ring-4 ring-emerald-500 ring-offset-2",

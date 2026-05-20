@@ -1,13 +1,15 @@
 @import "tailwindcss";
 
 html {
-  min-height: 100%;
+  height: 100%;
   background-color: #FAF8F4;
+  overflow: hidden;
 }
 
 body {
-  min-height: 100%;
+  height: 100%;
   background-color: #FAF8F4;
+  overflow: hidden;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
@@ -39,16 +41,38 @@ button:disabled {
   animation: rbbc-queue-badge-breathe 1800ms ease-in-out infinite;
 }
 
+.rbbc-app-shell {
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.rbbc-phone-portrait-only {
+  display: none;
+}
+
 .rbbc-product-grid {
   display: grid;
   grid-template-columns: repeat(var(--rbbc-grid-cols), minmax(0, 1fr));
   grid-template-rows: repeat(var(--rbbc-grid-rows), minmax(0, 1fr));
-  gap: clamp(0.6rem, 1vw, 1.25rem);
+  gap: clamp(0.45rem, 0.75vw, 0.85rem);
 }
 
 @media (max-width: 760px) {
   .rbbc-product-grid {
     grid-template-columns: repeat(var(--rbbc-grid-mobile-cols), minmax(0, 1fr));
     grid-template-rows: repeat(var(--rbbc-grid-mobile-rows), minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .rbbc-event-operating-surface {
+    display: none;
+  }
+
+  .rbbc-phone-portrait-only {
+    display: flex;
   }
 }

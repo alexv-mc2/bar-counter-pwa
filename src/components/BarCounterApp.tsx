@@ -108,7 +108,7 @@ function RollingBadgerLogo() {
     <img
       src="/brand/rolling-badger-logo.png"
       alt="Rolling Badger Bar"
-      className="h-16 w-40 select-none object-contain object-left md:h-20 md:w-52"
+      className="h-12 w-28 select-none object-contain object-left sm:h-14 sm:w-36 lg:h-16 lg:w-44"
       draggable={false}
     />
   );
@@ -282,7 +282,7 @@ function EventHero({
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-red-700">
           Rolling Badger
         </p>
-        <h1 className="text-3xl font-black tracking-tight text-stone-950 md:text-4xl">
+        <h1 className="text-2xl font-black tracking-tight text-stone-950 md:text-3xl">
           Bar Counter
         </h1>
       </div>
@@ -291,25 +291,29 @@ function EventHero({
 
   return (
     <div className="min-w-0 text-center">
-      <p className="flex items-center justify-center gap-2 text-sm font-semibold text-stone-700">
+      <p className="flex items-center justify-center gap-1.5 text-xs font-semibold text-stone-700 sm:text-sm">
         <span className="text-red-700">
           <CalendarIcon />
         </span>
         {formatEventDateTime(event.createdAt, locale)}
       </p>
-      <h1 className="truncate text-4xl font-black tracking-tight text-stone-950 md:text-5xl xl:text-6xl">
+      <h1 className="truncate text-2xl font-black tracking-tight text-stone-950 sm:text-3xl lg:text-4xl 2xl:text-5xl">
         {event.name}
       </h1>
-      <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+      <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
         <span
-          className={`rounded-lg px-3 py-1 text-sm font-black uppercase ${
+          className={`rounded-lg px-2.5 py-1 text-xs font-black uppercase sm:text-sm ${
             event.isActive ? "bg-red-700 text-white" : "bg-stone-200 text-stone-700"
           }`}
         >
           {event.isActive ? m.active : m.closed}
         </span>
-        <span className="text-base font-semibold text-stone-700">{m.resultsTotal}</span>
-        <span className="text-5xl font-black leading-none text-red-700">{totalCount}</span>
+        <span className="text-sm font-semibold text-stone-700 sm:text-base">
+          {m.resultsTotal}
+        </span>
+        <span className="text-3xl font-black leading-none text-red-700 sm:text-4xl">
+          {totalCount}
+        </span>
       </div>
     </div>
   );
@@ -341,7 +345,7 @@ function IconButton({
       onClick={onClick}
       disabled={disabled}
       className={[
-        "flex min-h-14 items-center justify-center gap-3 rounded-2xl px-6 py-3 text-base font-black transition disabled:cursor-not-allowed disabled:opacity-45",
+        "flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-45 sm:min-h-11 sm:px-4 lg:min-h-12 lg:rounded-2xl",
         variants[variant],
       ].join(" ")}
     >
@@ -373,7 +377,7 @@ function SidePanel({
   openSettings: () => void;
 }) {
   return (
-    <aside className="hidden w-72 shrink-0 flex-col overflow-hidden rounded-2xl border border-red-200/70 bg-white/85 shadow-[0_4px_18px_rgba(120,53,15,0.10)] xl:flex">
+    <aside className="hidden w-72 shrink-0 flex-col overflow-hidden rounded-2xl border border-red-200/70 bg-white/85 shadow-[0_4px_18px_rgba(120,53,15,0.10)] min-[1800px]:flex">
       <div className="border-b border-stone-200 p-5">
         <div className="flex items-center gap-2 text-sm font-black uppercase text-red-700">
           <NavCurrentIcon className="h-7 w-7" />
@@ -464,7 +468,7 @@ function BottomNav({
   openSettings: () => void;
 }) {
   const itemClass =
-    "flex min-h-16 flex-1 flex-col items-center justify-center gap-1 border-t-4 px-2 text-sm font-black";
+    "flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 border-t-4 px-1 text-[0.68rem] font-black leading-tight sm:min-h-14 sm:gap-1 sm:px-2 sm:text-xs lg:text-sm";
 
   return (
     <nav className="flex shrink-0 border-t border-stone-200 bg-white/95 shadow-[0_-4px_16px_rgba(120,53,15,0.06)]">
@@ -478,7 +482,7 @@ function BottomNav({
             : "border-transparent text-stone-500 disabled:text-stone-300"
         }`}
       >
-        <NavCurrentIcon className="h-7 w-7" />
+        <NavCurrentIcon className="h-5 w-5 sm:h-6 sm:w-6" />
         {m.currentEvent}
       </button>
       <button
@@ -488,7 +492,7 @@ function BottomNav({
           screen === "history" ? "border-red-700 text-red-700" : "border-transparent text-stone-500"
         }`}
       >
-        <NavHistoryIcon className="h-7 w-7" />
+        <NavHistoryIcon className="h-5 w-5 sm:h-6 sm:w-6" />
         {m.history}
       </button>
       <button
@@ -496,7 +500,7 @@ function BottomNav({
         onClick={openTemplate}
         className={`${itemClass} border-transparent text-stone-500`}
       >
-        <NavTemplateIcon className="h-7 w-7" />
+        <NavTemplateIcon className="h-5 w-5 sm:h-6 sm:w-6" />
         {m.drinkTemplate}
       </button>
       <button
@@ -504,7 +508,7 @@ function BottomNav({
         onClick={openSettings}
         className={`${itemClass} border-transparent text-stone-500`}
       >
-        <NavSettingsIcon className="h-7 w-7" />
+        <NavSettingsIcon className="h-5 w-5 sm:h-6 sm:w-6" />
         {m.settings}
       </button>
     </nav>
@@ -1291,8 +1295,8 @@ export function BarCounterApp() {
   };
 
   return (
-    <main className="flex h-dvh flex-col overflow-hidden bg-[#FAF8F4] text-stone-950">
-      <header className="grid shrink-0 grid-cols-1 items-center gap-4 border-b border-red-100/80 bg-[#fffdfa]/95 px-5 py-4 shadow-[0_4px_18px_rgba(120,53,15,0.08)] md:grid-cols-[16rem_minmax(0,1fr)_auto] md:px-8">
+    <main className="rbbc-app-shell flex flex-col overflow-hidden bg-[#FAF8F4] text-stone-950">
+      <header className="grid shrink-0 grid-cols-[minmax(7rem,auto)_minmax(0,1fr)_auto] items-center gap-2 border-b border-red-100/80 bg-[#fffdfa]/95 px-3 py-2 shadow-[0_4px_18px_rgba(120,53,15,0.08)] sm:gap-3 sm:px-4 lg:px-5">
         <button
           type="button"
           onClick={() => setScreen("home")}
@@ -1477,88 +1481,96 @@ export function BarCounterApp() {
 
       {screen === "event" && activeEvent && (
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-red-100/80 bg-[#fffdfa]/90 px-4 py-3 md:px-8">
-            <div className="flex w-full flex-wrap items-center gap-3">
-              <IconButton
-                icon={<UndoIcon />}
-                variant={undoMode ? "solid" : "outline"}
-                onClick={toggleUndoMode}
-              >
-                {undoMode ? m.undoMode : m.undo}
-              </IconButton>
-              <IconButton icon={<QueueIcon />} variant="outline" onClick={openQueue}>
-                {m.queue}
-                {pendingQueueTotal > 0 ? ` ${pendingQueueTotal}` : ""}
-              </IconButton>
-              <IconButton
-                icon={<QueueIcon />}
-                variant={serveMode ? "solid" : "outline"}
-                onClick={toggleServeMode}
-              >
-                {serveMode ? m.serveMode : m.serve}
-              </IconButton>
-              <IconButton
-                icon={<BarChartIcon />}
-                variant="outline"
-                onClick={() => void openResults(activeEvent)}
-              >
-                {m.results}
-              </IconButton>
-              {activeEvent.isActive && (
-                <IconButton
-                  icon={<StopSquareIcon />}
-                  variant="danger"
-                  onClick={requestFinishEvent}
-                >
-                  {m.closeEvent}
-                </IconButton>
-              )}
-              <IconButton
-                icon={<DownloadIcon />}
-                variant="solid"
-                onClick={() => void handleExport(activeEvent)}
-              >
-                {m.exportCsv}
-              </IconButton>
-            </div>
-            {eventMessage && (
-              <p className="w-full rounded-2xl bg-red-50 px-4 py-3 text-center text-sm font-black text-red-700">
-                {m[eventMessage]}
-              </p>
-            )}
+          <div className="rbbc-phone-portrait-only min-h-0 flex-1 items-center justify-center px-6 text-center">
+            <p className="rounded-3xl border border-red-100 bg-white/90 px-5 py-8 text-2xl font-black leading-tight text-stone-950 shadow-[0_6px_22px_rgba(120,53,15,0.10)]">
+              {m.rotateDevice}
+            </p>
           </div>
 
-          <div className="flex min-h-0 flex-1 gap-4 overflow-hidden px-4 py-4 md:px-6 xl:px-8">
-            <div className="min-w-0 flex-1 overflow-hidden">
-              <div
-                className="rbbc-product-grid h-full min-h-0"
-                style={productGridStyle}
-                data-product-count={visibleButtons.length}
-              >
-                {visibleButtons.map((button) => (
-                  <DrinkGridButton
-                    key={button.id}
-                    button={button}
-                    undoMode={undoMode}
-                    serveMode={serveMode}
-                    cardScale={gridLayout.cardScale}
-                    onTap={(id) => void handleTap(id)}
-                    onLongPress={setEditingButton}
-                  />
-                ))}
+          <div className="rbbc-event-operating-surface flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-red-100/80 bg-[#fffdfa]/90 px-3 py-2 sm:px-4 lg:px-5">
+              <div className="flex w-full flex-wrap items-center gap-2">
+                <IconButton
+                  icon={<UndoIcon />}
+                  variant={undoMode ? "solid" : "outline"}
+                  onClick={toggleUndoMode}
+                >
+                  {undoMode ? m.undoMode : m.undo}
+                </IconButton>
+                <IconButton icon={<QueueIcon />} variant="outline" onClick={openQueue}>
+                  {m.queue}
+                  {pendingQueueTotal > 0 ? ` ${pendingQueueTotal}` : ""}
+                </IconButton>
+                <IconButton
+                  icon={<QueueIcon />}
+                  variant={serveMode ? "solid" : "outline"}
+                  onClick={toggleServeMode}
+                >
+                  {serveMode ? m.serveMode : m.serve}
+                </IconButton>
+                <IconButton
+                  icon={<BarChartIcon />}
+                  variant="outline"
+                  onClick={() => void openResults(activeEvent)}
+                >
+                  {m.results}
+                </IconButton>
+                {activeEvent.isActive && (
+                  <IconButton
+                    icon={<StopSquareIcon />}
+                    variant="danger"
+                    onClick={requestFinishEvent}
+                  >
+                    {m.closeEvent}
+                  </IconButton>
+                )}
+                <IconButton
+                  icon={<DownloadIcon />}
+                  variant="solid"
+                  onClick={() => void handleExport(activeEvent)}
+                >
+                  {m.exportCsv}
+                </IconButton>
               </div>
+              {eventMessage && (
+                <p className="w-full rounded-xl bg-red-50 px-3 py-2 text-center text-xs font-black text-red-700 sm:text-sm">
+                  {m[eventMessage]}
+                </p>
+              )}
             </div>
-            <SidePanel
-              activeEvent={activeEvent}
-              totalCount={totalCount}
-              locale={locale}
-              m={m}
-              openResults={openActiveResults}
-              openQueue={openQueue}
-              goHistory={goHistory}
-              openTemplate={openTemplate}
-              openSettings={openSettings}
-            />
+
+            <div className="flex min-h-0 flex-1 gap-3 overflow-hidden px-3 py-2 sm:px-4 lg:px-5">
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <div
+                  className="rbbc-product-grid h-full min-h-0"
+                  style={productGridStyle}
+                  data-product-count={visibleButtons.length}
+                >
+                  {visibleButtons.map((button) => (
+                    <DrinkGridButton
+                      key={button.id}
+                      button={button}
+                      undoMode={undoMode}
+                      serveMode={serveMode}
+                      cardScale={gridLayout.cardScale}
+                      onTap={(id) => void handleTap(id)}
+                      onLongPress={setEditingButton}
+                    />
+                  ))}
+                </div>
+              </div>
+              <SidePanel
+                activeEvent={activeEvent}
+                totalCount={totalCount}
+                locale={locale}
+                m={m}
+                openResults={openActiveResults}
+                openQueue={openQueue}
+                goHistory={goHistory}
+                openTemplate={openTemplate}
+                openSettings={openSettings}
+              />
+            </div>
           </div>
         </section>
       )}
