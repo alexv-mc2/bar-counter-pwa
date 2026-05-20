@@ -8,12 +8,17 @@ import {
   type ReactNode,
 } from "react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { DrinkGridButton, type DrinkCardScale } from "@/components/DrinkGridButton";
+import {
+  AddProductButton,
+  DrinkGridButton,
+  type DrinkCardScale,
+} from "@/components/DrinkGridButton";
 import { EditButtonModal } from "@/components/EditButtonModal";
 import { EventResultsView } from "@/components/EventResultsView";
 import { buildEventCsv, downloadCsv, eventCsvFilename } from "@/lib/csv/export";
 import { formatEventDateTime, getPendingQueue } from "@/lib/events/results";
 import { t } from "@/lib/i18n/messages";
+import { DRINK_TEMPLATES } from "@/lib/templates/drinks";
 import {
   NavCurrentIcon,
   NavHistoryIcon,
@@ -37,17 +42,25 @@ import {
 import {
   clearPin,
   getButtonCountPreset,
+  getCustomDrinkTemplates,
   getLastActiveEventId,
   getLocale,
   hasPin,
   isValidPin,
   normalizeButtonCountPreset,
+  saveCustomDrinkTemplate,
   setButtonCountPreset,
   setLocale,
   setPin,
   verifyPin,
 } from "@/lib/storage/preferences";
-import type { BarEvent, ButtonCountPreset, DrinkButton, Locale } from "@/lib/types";
+import type {
+  BarEvent,
+  ButtonCountPreset,
+  DrinkButton,
+  DrinkTemplate,
+  Locale,
+} from "@/lib/types";
 
 type Screen = "home" | "create" | "event" | "history";
 type Messages = ReturnType<typeof t>;
@@ -99,6 +112,44 @@ function formatButtonCountPreset(preset: ButtonCountPreset, locale: Locale) {
   if (preset === 1) return "1 кнопка";
   if (preset >= 2 && preset <= 4) return `${preset} кнопки`;
   return `${preset} кнопок`;
+}
+
+function newCustomTemplateId(): string {
+  return `custom-${Date.now()}-${crypto.randomUUID()}`;
+}
+
+function canReuseButtonSlot(button: DrinkButton): boolean {
+  return button.count <= 0 && button.pendingCount <= 0;
+}
+
+function visibleButtonsForPreset(
+  sortedButtons: DrinkButton[],
+  preset: ButtonCountPreset,
+): DrinkButton[] {
+  return sortedButtons
+    .slice(0, Math.min(preset, sortedButtons.length))
+    .filter((button) => button.isVisible !== false);
+}
+
+function findAddButtonSlot(
+  sortedButtons: DrinkButton[],
+  preset: ButtonCountPreset,
+): DrinkButton | null {
+  const presetWindow = sortedButtons.slice(0, Math.min(preset, sortedButtons.length));
+  return (
+    presetWindow.find((button) => button.isVisible === false && canReuseButtonSlot(button)) ??
+    sortedButtons
+      .slice(Math.min(preset, sortedButtons.length))
+      .find((button) => canReuseButtonSlot(button)) ??
+    sortedButtons.find((button) => button.isVisible === false && canReuseButtonSlot(button)) ??
+    null
+  );
+}
+
+function rankVisibleSlot(sortedButtons: DrinkButton[], buttonId: string): number {
+  return sortedButtons
+    .filter((button) => button.isVisible !== false)
+    .findIndex((button) => button.id === buttonId);
 }
 
 function RollingBadgerLogo() {
@@ -1088,6 +1139,8 @@ export function BarCounterApp() {
   const [serveMode, setServeMode] = useState(false);
   const [eventMessage, setEventMessage] = useState<EventMessage | null>(null);
   const [editingButton, setEditingButton] = useState<DrinkButton | null>(null);
+  const [addingButton, setAddingButton] = useState<DrinkButton | null>(null);
+  const [customTemplates, setCustomTemplates] = useState<DrinkTemplate[]>([]);
   const [resultsEvent, setResultsEvent] = useState<BarEvent | null>(null);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
@@ -1100,6 +1153,7 @@ export function BarCounterApp() {
     useState<ButtonCountPreset>(16);
 
   const m = t(locale);
+  const drinkTemplates = [...DRINK_TEMPLATES, ...customTemplates];
 
   const refresh = useCallback(async () => {
     const all = await listEvents();
@@ -1126,6 +1180,7 @@ export function BarCounterApp() {
     setLocaleState(getLocale());
     setButtonCountPresetState(getButtonCountPreset());
     setPinEnabledState(hasPin());
+    setCustomTemplates(getCustomDrinkTemplates());
   }, []);
 
   const changeLocale = (next: Locale) => {
@@ -1248,9 +1303,68 @@ export function BarCounterApp() {
     requestProtectedAction(() => performDeleteEvent(event));
   };
 
-  const handleSaveEdit = async (patch: Partial<DrinkButton>) => {
+  const withOptionalCustomTemplate = (
+    patch: Partial<DrinkButton>,
+    saveAsTemplate?: boolean,
+  ): Partial<DrinkButton> => {
+    if (!saveAsTemplate) return patch;
+    const name = (patch.name ?? "").trim();
+    if (!name || !patch.category || !patch.icon || !patch.color) return patch;
+    const template: DrinkTemplate = {
+      id: newCustomTemplateId(),
+      category: patch.category,
+      icon: patch.icon,
+      color: patch.color,
+      labels: { ru: name, de: name },
+    };
+    const nextTemplates = saveCustomDrinkTemplate(template);
+    setCustomTemplates(nextTemplates);
+    return { ...patch, templateId: template.id };
+  };
+
+  const handleSaveEdit = async (
+    patch: Partial<DrinkButton>,
+    options?: { saveAsTemplate: boolean },
+  ) => {
     if (!activeEvent || !editingButton) return;
-    const updated = await updateButton(activeEvent, editingButton.id, patch);
+    const updated = await updateButton(
+      activeEvent,
+      editingButton.id,
+      withOptionalCustomTemplate(patch, options?.saveAsTemplate),
+    );
+    setActiveEventState(updated);
+    setEditingButton(null);
+    await refresh();
+    if (resultsEvent?.id === updated.id) setResultsEvent(updated);
+  };
+
+  const handleSaveAdd = async (
+    patch: Partial<DrinkButton>,
+    options?: { saveAsTemplate: boolean },
+  ) => {
+    if (!activeEvent || !addingButton) return;
+    const patched = withOptionalCustomTemplate(
+      { ...patch, count: 0, pendingCount: 0, isVisible: true },
+      options?.saveAsTemplate,
+    );
+    const updated = await updateButton(activeEvent, addingButton.id, patched);
+    const sortedUpdatedButtons = [...updated.buttons].sort((a, b) => a.slotIndex - b.slotIndex);
+    const visibleRank = rankVisibleSlot(sortedUpdatedButtons, addingButton.id);
+    if (visibleRank >= buttonCountPresetState) {
+      const nextPreset = normalizeButtonCountPreset(visibleRank + 1);
+      setButtonCountPreset(nextPreset);
+      setButtonCountPresetState(nextPreset);
+    }
+    setActiveEventState(updated);
+    setAddingButton(null);
+    await refresh();
+    if (resultsEvent?.id === updated.id) setResultsEvent(updated);
+  };
+
+  const handleHideButton = async (button: DrinkButton) => {
+    if (!activeEvent) return;
+    if (button.count > 0 || button.pendingCount > 0) return;
+    const updated = await updateButton(activeEvent, button.id, { isVisible: false });
     setActiveEventState(updated);
     setEditingButton(null);
     await refresh();
@@ -1271,13 +1385,14 @@ export function BarCounterApp() {
   const sortedButtons = activeEvent
     ? [...activeEvent.buttons].sort((a, b) => a.slotIndex - b.slotIndex)
     : [];
-  // Presets only change button visibility. Hidden slots stay in event.buttons, so
-  // non-zero hidden counts remain in totals, results, CSV export, and future presets.
-  const visibleButtons = sortedButtons.slice(
-    0,
-    Math.min(buttonCountPresetState, sortedButtons.length),
-  );
-  const gridLayout = getProductGridLayout(visibleButtons.length);
+  // Presets and per-button visibility only affect the active grid. Hidden slots
+  // stay in event.buttons, so non-zero hidden counts remain in totals, queue,
+  // results, CSV export, and future presets.
+  const visibleButtons = visibleButtonsForPreset(sortedButtons, buttonCountPresetState);
+  const addButtonSlot = findAddButtonSlot(sortedButtons, buttonCountPresetState);
+  const showAddButton = Boolean(addButtonSlot) && visibleButtons.length < MAX_BUTTON_COUNT;
+  const gridItemCount = visibleButtons.length + (showAddButton ? 1 : 0);
+  const gridLayout = getProductGridLayout(Math.max(1, gridItemCount));
   const productGridStyle: ProductGridStyle = {
     "--rbbc-grid-cols": gridLayout.columns,
     "--rbbc-grid-rows": gridLayout.rows,
@@ -1292,6 +1407,10 @@ export function BarCounterApp() {
   const openTemplate = () => setTemplateOpen(true);
   const openQueue = () => setQueueOpen(true);
   const openSettings = () => setSettingsOpen(true);
+  const openAddProduct = () => {
+    if (!addButtonSlot) return;
+    setAddingButton(addButtonSlot);
+  };
   const openActiveResults = () => {
     if (!activeEvent) return;
     void openResults(activeEvent);
@@ -1580,6 +1699,14 @@ export function BarCounterApp() {
                       onLongPress={setEditingButton}
                     />
                   ))}
+                  {showAddButton && (
+                    <AddProductButton
+                      cardScale={gridLayout.cardScale}
+                      label={m.addProduct}
+                      hint={m.addProductHint}
+                      onLongPress={openAddProduct}
+                    />
+                  )}
                 </div>
               </div>
               <SidePanel
@@ -1612,8 +1739,21 @@ export function BarCounterApp() {
         locale={locale}
         button={editingButton}
         open={Boolean(editingButton)}
+        mode="edit"
+        templates={drinkTemplates}
         onClose={() => setEditingButton(null)}
-        onSave={(patch) => void handleSaveEdit(patch)}
+        onSave={(patch, options) => void handleSaveEdit(patch, options)}
+        onHide={(button) => void handleHideButton(button)}
+      />
+
+      <EditButtonModal
+        locale={locale}
+        button={addingButton}
+        open={Boolean(addingButton)}
+        mode="add"
+        templates={drinkTemplates}
+        onClose={() => setAddingButton(null)}
+        onSave={(patch, options) => void handleSaveAdd(patch, options)}
       />
 
       {templateOpen && (

@@ -1,11 +1,43 @@
-import type { ButtonCountPreset, Locale } from "@/lib/types";
+import type {
+  ButtonCountPreset,
+  DrinkCategory,
+  DrinkColor,
+  DrinkIcon,
+  DrinkTemplate,
+  Locale,
+} from "@/lib/types";
 
 const LOCALE_KEY = "rbbc.locale";
 const LAST_EVENT_KEY = "rbbc.lastActiveEventId";
 const BUTTON_COUNT_PRESET_KEY = "rbbc.buttonCountPreset";
 const PIN_HASH_KEY = "rbbc.pinHash";
+const CUSTOM_DRINK_TEMPLATES_KEY = "rbbc.customDrinkTemplates";
 const BUTTON_COUNT_MIN = 1;
 const BUTTON_COUNT_MAX = 16;
+const DRINK_CATEGORIES: DrinkCategory[] = [
+  "cocktail",
+  "mocktail",
+  "coffee",
+  "soft",
+  "beer",
+  "wine",
+  "tea",
+  "other",
+];
+const DRINK_COLORS: DrinkColor[] = ["amber", "blue", "green", "red", "purple", "slate"];
+const DRINK_ICONS: DrinkIcon[] = [
+  "cocktail",
+  "mocktail",
+  "coffee",
+  "cup",
+  "bottle",
+  "water",
+  "beer",
+  "wine",
+  "shot",
+  "tea",
+  "other",
+];
 
 export function getLocale(): Locale {
   if (typeof window === "undefined") return "ru";
@@ -32,6 +64,40 @@ export function getButtonCountPreset(): ButtonCountPreset {
 
 export function setButtonCountPreset(preset: ButtonCountPreset): void {
   localStorage.setItem(BUTTON_COUNT_PRESET_KEY, String(normalizeButtonCountPreset(preset)));
+}
+
+function isDrinkTemplate(value: unknown): value is DrinkTemplate {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Partial<DrinkTemplate>;
+  return (
+    typeof item.id === "string" &&
+    DRINK_CATEGORIES.includes(item.category as DrinkCategory) &&
+    DRINK_ICONS.includes(item.icon as DrinkIcon) &&
+    DRINK_COLORS.includes(item.color as DrinkColor) &&
+    typeof item.labels?.ru === "string" &&
+    typeof item.labels?.de === "string"
+  );
+}
+
+export function getCustomDrinkTemplates(): DrinkTemplate[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CUSTOM_DRINK_TEMPLATES_KEY) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter(isDrinkTemplate) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomDrinkTemplate(template: DrinkTemplate): DrinkTemplate[] {
+  if (typeof window === "undefined") return [];
+  const current = getCustomDrinkTemplates();
+  const next = [
+    ...current.filter((item) => item.id !== template.id),
+    template,
+  ].slice(-64);
+  localStorage.setItem(CUSTOM_DRINK_TEMPLATES_KEY, JSON.stringify(next));
+  return next;
 }
 
 export function isValidPin(pin: string): boolean {

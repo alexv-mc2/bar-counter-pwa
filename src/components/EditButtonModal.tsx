@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { DRINK_TEMPLATES } from "@/lib/templates/drinks";
 import { t } from "@/lib/i18n/messages";
-import type { DrinkButton, DrinkCategory, DrinkColor, DrinkIcon, Locale } from "@/lib/types";
+import type {
+  DrinkButton,
+  DrinkCategory,
+  DrinkColor,
+  DrinkIcon,
+  DrinkTemplate,
+  Locale,
+} from "@/lib/types";
 
 const CATEGORIES: DrinkCategory[] = [
   "cocktail",
@@ -39,14 +46,20 @@ export function EditButtonModal({
   locale,
   button,
   open,
+  mode = "edit",
+  templates = DRINK_TEMPLATES,
   onClose,
   onSave,
+  onHide,
 }: {
   locale: Locale;
   button: DrinkButton | null;
   open: boolean;
+  mode?: "edit" | "add";
+  templates?: DrinkTemplate[];
   onClose: () => void;
-  onSave: (patch: Partial<DrinkButton>) => void;
+  onSave: (patch: Partial<DrinkButton>, options?: { saveAsTemplate: boolean }) => void;
+  onHide?: (button: DrinkButton) => void;
 }) {
   if (!open || !button) return null;
   return (
@@ -54,8 +67,11 @@ export function EditButtonModal({
       key={button.id}
       locale={locale}
       button={button}
+      mode={mode}
+      templates={templates}
       onClose={onClose}
       onSave={onSave}
+      onHide={onHide}
     />
   );
 }
@@ -63,13 +79,19 @@ export function EditButtonModal({
 function EditButtonForm({
   locale,
   button,
+  mode,
+  templates,
   onClose,
   onSave,
+  onHide,
 }: {
   locale: Locale;
   button: DrinkButton;
+  mode: "edit" | "add";
+  templates: DrinkTemplate[];
   onClose: () => void;
-  onSave: (patch: Partial<DrinkButton>) => void;
+  onSave: (patch: Partial<DrinkButton>, options?: { saveAsTemplate: boolean }) => void;
+  onHide?: (button: DrinkButton) => void;
 }) {
   const m = t(locale);
   const [name, setName] = useState(button.name);
@@ -77,9 +99,16 @@ function EditButtonForm({
   const [category, setCategory] = useState<DrinkCategory>(button.category);
   const [icon, setIcon] = useState<DrinkIcon>(button.icon);
   const [color, setColor] = useState<DrinkColor>(button.color);
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [hideConfirmOpen, setHideConfirmOpen] = useState(false);
+  const [hideError, setHideError] = useState("");
 
   const applyTemplate = (id: string) => {
-    const template = DRINK_TEMPLATES.find((item) => item.id === id);
+    if (!id) {
+      setTemplateId("");
+      return;
+    }
+    const template = templates.find((item) => item.id === id);
     if (!template) return;
     setTemplateId(template.id);
     setName(template.labels[locale]);
@@ -100,7 +129,7 @@ function EditButtonForm({
           id="edit-button-title"
           className="mb-5 text-3xl font-black text-stone-950"
         >
-          {m.editButton}
+          {mode === "add" ? m.addProduct : m.editButton}
         </h2>
 
         <label className={LABEL_CLS}>{m.displayName}</label>
@@ -117,7 +146,7 @@ function EditButtonForm({
           onChange={(e) => applyTemplate(e.target.value)}
         >
           <option value="">—</option>
-          {DRINK_TEMPLATES.map((template) => (
+          {templates.map((template) => (
             <option key={template.id} value={template.id}>
               {template.labels[locale]}
             </option>
@@ -163,6 +192,69 @@ function EditButtonForm({
           ))}
         </select>
 
+        <button
+          type="button"
+          onClick={() => setSaveAsTemplate((current) => !current)}
+          className={`mb-4 min-h-12 w-full rounded-2xl border-2 px-4 py-3 text-left font-black transition ${
+            saveAsTemplate
+              ? "border-red-700 bg-red-50 text-red-800"
+              : "border-stone-300 bg-white text-stone-700 active:bg-stone-100"
+          }`}
+        >
+          <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-md border-2 border-current text-sm leading-none">
+            {saveAsTemplate ? "✓" : ""}
+          </span>
+          {m.saveAsTemplate}
+        </button>
+
+        {mode === "edit" && onHide && (
+          <div className="mb-4 rounded-2xl border border-stone-200 bg-white/80 p-3">
+            {hideError && (
+              <p className="mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm font-black text-red-700">
+                {hideError}
+              </p>
+            )}
+            {hideConfirmOpen ? (
+              <div>
+                <p className="mb-3 text-base font-black text-stone-900">
+                  {m.hideButtonQuestion}
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setHideConfirmOpen(false)}
+                    className="min-h-12 flex-1 rounded-2xl border-2 border-stone-300 bg-white px-4 py-2 font-black text-stone-700 active:bg-stone-100"
+                  >
+                    {m.cancel}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onHide(button)}
+                    className="min-h-12 flex-1 rounded-2xl border-2 border-red-200 bg-white px-4 py-2 font-black text-red-700 active:bg-red-50"
+                  >
+                    {m.hideButton}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  if (button.count > 0 || button.pendingCount > 0) {
+                    setHideError(m.hideButtonBlocked);
+                    return;
+                  }
+                  setHideError("");
+                  setHideConfirmOpen(true);
+                }}
+                className="min-h-12 w-full rounded-2xl border-2 border-red-200 bg-white px-4 py-2 font-black text-red-700 active:bg-red-50"
+              >
+                {m.hideButton}
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="flex gap-3">
           <button
             type="button"
@@ -180,6 +272,10 @@ function EditButtonForm({
                 category,
                 icon,
                 color,
+                isVisible: true,
+              },
+              {
+                saveAsTemplate,
               })
             }
             className="min-h-14 flex-1 rounded-2xl bg-red-700 px-4 py-3 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800"

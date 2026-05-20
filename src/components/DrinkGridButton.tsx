@@ -5,7 +5,7 @@ import { DrinkIconView } from "@/lib/ui/icons";
 import { COLOR_CLASSES } from "@/lib/ui/colors";
 import type { DrinkButton } from "@/lib/types";
 
-const LONG_PRESS_MS = 5000;
+const LONG_PRESS_MS = 3000;
 export type DrinkCardScale = "compact" | "medium" | "large";
 
 const SCALE_CLASSES: Record<
@@ -34,6 +34,16 @@ const SCALE_CLASSES: Record<
     badge: "h-12 w-12 text-2xl md:h-14 md:w-14 md:text-3xl",
   },
 };
+
+function resetLongPressSoon(
+  longPressRef: React.MutableRefObject<boolean>,
+  suppressClickRef: React.MutableRefObject<boolean>,
+) {
+  window.setTimeout(() => {
+    longPressRef.current = false;
+    suppressClickRef.current = false;
+  }, 250);
+}
 
 export function DrinkGridButton({
   button,
@@ -72,11 +82,17 @@ export function DrinkGridButton({
       longPressRef.current = true;
       suppressClickRef.current = true;
       onLongPress(button);
+      const resetAfterRelease = () => resetLongPressSoon(longPressRef, suppressClickRef);
+      window.addEventListener("pointerup", resetAfterRelease, { once: true, capture: true });
+      window.addEventListener("mouseup", resetAfterRelease, { once: true, capture: true });
     }, LONG_PRESS_MS);
   };
 
   const endPress = () => {
     clearTimer();
+    if (longPressRef.current) {
+      resetLongPressSoon(longPressRef, suppressClickRef);
+    }
   };
 
   const handleClick = () => {
@@ -98,7 +114,7 @@ export function DrinkGridButton({
       onClick={handleClick}
       onContextMenu={(e) => e.preventDefault()}
       className={[
-        "group relative flex h-full min-h-0 select-none flex-col items-center justify-center gap-1 overflow-hidden rounded-[18px] border border-red-200/70 bg-white/90 px-2 py-1.5 text-center sm:px-3 sm:py-2",
+        "rbbc-product-card group relative flex h-full min-h-0 select-none flex-col items-center justify-center gap-1 overflow-hidden rounded-[18px] border border-red-200/70 bg-white/90 px-2 py-1.5 text-center sm:px-3 sm:py-2",
         "shadow-[0_3px_12px_rgba(120,53,15,0.10)] transition-all active:scale-[0.985] active:shadow-sm",
         undoMode && "ring-4 ring-dashed ring-red-500 ring-offset-2",
         serveMode && !undoMode && "ring-4 ring-emerald-500 ring-offset-2",
@@ -136,6 +152,86 @@ export function DrinkGridButton({
           {button.pendingCount}
         </span>
       )}
+    </button>
+  );
+}
+
+export function AddProductButton({
+  cardScale = "compact",
+  label,
+  hint,
+  onLongPress,
+}: {
+  cardScale?: DrinkCardScale;
+  label: string;
+  hint: string;
+  onLongPress: () => void;
+}) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressRef = useRef(false);
+  const suppressClickRef = useRef(false);
+  const scale = SCALE_CLASSES[cardScale];
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const startPress = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return;
+    longPressRef.current = false;
+    suppressClickRef.current = false;
+    clearTimer();
+    timerRef.current = setTimeout(() => {
+      longPressRef.current = true;
+      suppressClickRef.current = true;
+      onLongPress();
+      const resetAfterRelease = () => resetLongPressSoon(longPressRef, suppressClickRef);
+      window.addEventListener("pointerup", resetAfterRelease, { once: true, capture: true });
+      window.addEventListener("mouseup", resetAfterRelease, { once: true, capture: true });
+    }, LONG_PRESS_MS);
+  };
+
+  const handleClick = () => {
+    if (longPressRef.current || suppressClickRef.current) {
+      longPressRef.current = false;
+      suppressClickRef.current = false;
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      data-add-product-button="true"
+      onPointerDown={startPress}
+      onPointerUp={() => {
+        clearTimer();
+        if (longPressRef.current) {
+          resetLongPressSoon(longPressRef, suppressClickRef);
+        }
+      }}
+      onPointerLeave={clearTimer}
+      onPointerCancel={clearTimer}
+      onClick={handleClick}
+      onContextMenu={(e) => e.preventDefault()}
+      className="relative flex h-full min-h-0 select-none flex-col items-center justify-center gap-1 overflow-hidden rounded-[18px] border-2 border-dashed border-stone-300/80 bg-white/45 px-2 py-1.5 text-center text-stone-400 shadow-[0_3px_10px_rgba(120,53,15,0.05)] active:scale-[0.985] active:bg-stone-50 sm:px-3 sm:py-2"
+      aria-label={label}
+    >
+      <span
+        className={`flex shrink-0 items-center justify-center rounded-2xl border border-stone-200/80 bg-stone-50/80 ${scale.iconWrap}`}
+      >
+        <span className="text-[clamp(2.5rem,7vh,4.75rem)] font-black leading-none text-stone-300">
+          +
+        </span>
+      </span>
+      <span
+        className={`line-clamp-2 font-black leading-[1.05] text-stone-400 ${scale.name}`}
+      >
+        {label}
+      </span>
+      <span className="sr-only">{hint}</span>
     </button>
   );
 }

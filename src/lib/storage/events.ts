@@ -32,6 +32,7 @@ function defaultButtons(locale: "ru" | "de"): DrinkButton[] {
     category: template.category,
     icon: template.icon,
     color: template.color,
+    isVisible: true,
     count: 0,
     pendingCount: 0,
   }));
@@ -55,7 +56,7 @@ function normalizeCount(value: unknown): number {
 function normalizeButton(button: DrinkButton): DrinkButton {
   const count = normalizeCount(button.count);
   const pendingCount = Math.min(count, normalizeCount(button.pendingCount));
-  return { ...button, count, pendingCount };
+  return { ...button, isVisible: button.isVisible !== false, count, pendingCount };
 }
 
 function normalizeEvent(event: BarEvent): BarEvent {
@@ -109,7 +110,13 @@ export async function createEvent(name: string, locale: "ru" | "de"): Promise<Ba
 
   const template = await getButtonTemplate();
   const buttons: DrinkButton[] = template
-    ? template.map((config) => ({ ...config, id: newId(), count: 0, pendingCount: 0 }))
+    ? template.map((config) => ({
+        ...config,
+        id: newId(),
+        isVisible: config.isVisible !== false,
+        count: 0,
+        pendingCount: 0,
+      }))
     : defaultButtons(locale);
 
   const now = new Date().toISOString();

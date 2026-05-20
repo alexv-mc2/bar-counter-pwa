@@ -49,6 +49,7 @@ export interface DrinkButtonConfig {
   category: DrinkCategory;
   icon: DrinkIcon;
   color: DrinkColor;
+  isVisible?: boolean;
 }
 
 export interface DrinkButton extends DrinkButtonConfig {
