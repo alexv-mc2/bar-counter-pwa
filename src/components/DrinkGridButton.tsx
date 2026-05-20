@@ -16,21 +16,21 @@ const SCALE_CLASSES: Record<
     iconWrap:
       "h-[clamp(3rem,8.5vh,5rem)] w-[clamp(3.5rem,9vw,6rem)] rounded-2xl",
     icon: "h-[clamp(3rem,8.25vh,5rem)] w-[clamp(3rem,8.25vh,5rem)]",
-    name: "min-h-[1.85rem] text-[clamp(0.78rem,1.4vw,1.1rem)]",
+    name: "min-h-[2.4rem] text-[clamp(1rem,1.8vw,1.43rem)]",
     badge: "h-9 w-9 text-lg md:h-10 md:w-10 md:text-xl",
   },
   medium: {
     iconWrap:
       "h-[clamp(4.5rem,14vh,7rem)] w-[clamp(5rem,14vw,8rem)] rounded-[1.35rem]",
     icon: "h-[clamp(4.5rem,14vh,7rem)] w-[clamp(4.5rem,14vh,7rem)]",
-    name: "min-h-[2.15rem] text-[clamp(1rem,1.9vw,1.5rem)]",
+    name: "min-h-[2.8rem] text-[clamp(1.3rem,2.45vw,1.95rem)]",
     badge: "h-11 w-11 text-xl md:h-12 md:w-12 md:text-2xl",
   },
   large: {
     iconWrap:
       "h-[clamp(5.5rem,20vh,9rem)] w-[clamp(6rem,18vw,10rem)] rounded-[1.6rem]",
     icon: "h-[clamp(5.5rem,20vh,9rem)] w-[clamp(5.5rem,20vh,9rem)]",
-    name: "min-h-[2.5rem] text-[clamp(1.2rem,2.3vw,1.9rem)]",
+    name: "min-h-[3.25rem] text-[clamp(1.55rem,3vw,2.45rem)]",
     badge: "h-12 w-12 text-2xl md:h-14 md:w-14 md:text-3xl",
   },
 };
@@ -120,7 +120,7 @@ export function DrinkGridButton({
         />
       </span>
       <span
-        className={`line-clamp-2 font-black leading-tight text-stone-950 ${scale.name}`}
+        className={`line-clamp-2 font-black leading-[1.05] text-stone-950 ${scale.name}`}
       >
         {button.name}
       </span>
