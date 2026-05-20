@@ -876,10 +876,25 @@ function QueueModal({
   const queuedDrinks = getPendingQueue(event).drinks;
   const [amounts, setAmounts] = useState<Record<string, string>>({});
 
-  const getAmount = (button: DrinkButton) => {
-    const value = Number(amounts[button.id] ?? "1");
-    if (!Number.isFinite(value)) return 1;
-    return Math.min(button.pendingCount, Math.max(1, Math.floor(value)));
+  const getAmountValue = (buttonId: string) => amounts[buttonId] ?? "1";
+
+  const getServeAmount = (button: DrinkButton) => {
+    const value = Number(getAmountValue(button.id));
+    if (!Number.isFinite(value)) return null;
+
+    const wholeAmount = Math.floor(value);
+    if (wholeAmount <= 0) return null;
+
+    return Math.min(button.pendingCount, wholeAmount);
+  };
+
+  const stepAmount = (button: DrinkButton, direction: -1 | 1) => {
+    setAmounts((current) => {
+      const value = Number(current[button.id] ?? "1");
+      const currentAmount = Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
+      const nextAmount = Math.min(button.pendingCount, Math.max(1, currentAmount + direction));
+      return { ...current, [button.id]: String(nextAmount) };
+    });
   };
 
   return (
@@ -900,64 +915,90 @@ function QueueModal({
             </p>
           ) : (
             <ul className="mt-5 space-y-3">
-              {queuedDrinks.map((button) => (
-                <li
-                  key={button.id}
-                  className="rounded-2xl border border-red-100 bg-white/90 p-4 shadow-[0_4px_16px_rgba(120,53,15,0.08)]"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-2xl font-black text-stone-950">{button.name}</p>
-                      <p className="text-sm font-black uppercase tracking-wide text-stone-500">
-                        {m.queueCount}
-                      </p>
+              {queuedDrinks.map((button) => {
+                const amountToServe = getServeAmount(button);
+
+                return (
+                  <li
+                    key={button.id}
+                    className="rounded-2xl border border-red-100 bg-white/90 p-4 shadow-[0_4px_16px_rgba(120,53,15,0.08)]"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-2xl font-black text-stone-950">{button.name}</p>
+                        <p className="text-sm font-black uppercase tracking-wide text-stone-500">
+                          {m.queueCount}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-red-700 px-4 py-2 text-2xl font-black leading-none text-white shadow-[0_4px_10px_rgba(185,28,28,0.26)]">
+                        {button.pendingCount}
+                      </span>
                     </div>
-                    <span className="rounded-full bg-red-700 px-4 py-2 text-2xl font-black leading-none text-white shadow-[0_4px_10px_rgba(185,28,28,0.26)]">
-                      {button.pendingCount}
-                    </span>
-                  </div>
-                  <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_minmax(0,1.5fr)]">
-                    <button
-                      type="button"
-                      onClick={() => onServe(button.id, 1)}
-                      className="min-h-12 rounded-2xl border-2 border-stone-300 bg-white px-4 py-2 font-black text-stone-800 active:bg-stone-100"
-                    >
-                      {m.serveOne}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onServe(button.id, button.pendingCount)}
-                      className="min-h-12 rounded-2xl bg-red-700 px-4 py-2 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.20)] active:bg-red-800"
-                    >
-                      {m.serveAll}
-                    </button>
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min={1}
-                        max={button.pendingCount}
-                        value={amounts[button.id] ?? "1"}
-                        onChange={(event) =>
-                          setAmounts((current) => ({
-                            ...current,
-                            [button.id]: event.target.value,
-                          }))
-                        }
-                        className="min-h-12 min-w-0 flex-1 rounded-2xl border-2 border-stone-200 bg-white px-3 text-center text-lg font-black text-stone-950 focus:border-red-600 focus:outline-none"
-                        aria-label={m.serveAmount}
-                      />
+                    <div className="mt-4 grid gap-2 sm:grid-cols-[0.75fr_0.75fr_2.3fr]">
                       <button
                         type="button"
-                        onClick={() => onServe(button.id, getAmount(button))}
-                        className="min-h-12 rounded-2xl border-2 border-red-200 bg-white px-4 py-2 font-black text-red-700 active:bg-red-50"
+                        onClick={() => onServe(button.id, 1)}
+                        className="min-h-12 rounded-2xl border-2 border-stone-300 bg-white px-4 py-2 font-black text-stone-800 active:bg-stone-100"
                       >
-                        {m.serveAmount}
+                        {m.serveOne}
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => onServe(button.id, button.pendingCount)}
+                        className="min-h-12 rounded-2xl bg-red-700 px-4 py-2 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.20)] active:bg-red-800"
+                      >
+                        {m.serveAll}
+                      </button>
+                      <div className="grid gap-2 sm:grid-cols-[minmax(8.75rem,1fr)_minmax(10.5rem,auto)]">
+                        <div className="grid min-w-0 flex-1 grid-cols-[2.75rem_minmax(3.25rem,1fr)_2.75rem] rounded-2xl border-2 border-stone-200 bg-white">
+                          <button
+                            type="button"
+                            onClick={() => stepAmount(button, -1)}
+                            className="min-h-12 rounded-l-2xl text-2xl font-black text-stone-700 active:bg-stone-100"
+                            aria-label="-1"
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            step={1}
+                            min={1}
+                            max={button.pendingCount}
+                            value={getAmountValue(button.id)}
+                            onChange={(event) =>
+                              setAmounts((current) => ({
+                                ...current,
+                                [button.id]: event.target.value,
+                              }))
+                            }
+                            className="min-h-12 min-w-0 border-x-2 border-stone-100 bg-white px-2 text-center text-lg font-black text-stone-950 focus:outline-none"
+                            aria-label={m.serveAmount}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => stepAmount(button, 1)}
+                            className="min-h-12 rounded-r-2xl text-2xl font-black text-stone-700 active:bg-stone-100"
+                            aria-label="+1"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={amountToServe === null}
+                          onClick={() => {
+                            if (amountToServe !== null) onServe(button.id, amountToServe);
+                          }}
+                          className="min-h-12 rounded-2xl border-2 border-red-200 bg-white px-4 py-2 font-black text-red-700 active:bg-red-50 disabled:border-stone-200 disabled:text-stone-300 disabled:shadow-none disabled:active:bg-white"
+                        >
+                          {m.serveAmount}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
