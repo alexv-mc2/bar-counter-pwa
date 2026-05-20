@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   title: "Rolling Badger Bar Counter",
   description: "Local-first tablet bar drink counter",
   manifest: "/manifest.webmanifest",
+  icons: {
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
     title: "Bar Counter",
