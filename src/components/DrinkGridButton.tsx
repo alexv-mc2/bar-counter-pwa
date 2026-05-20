@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 import { DrinkIconView } from "@/lib/ui/icons";
 import { COLOR_CLASSES } from "@/lib/ui/colors";
 import type { DrinkButton } from "@/lib/types";
@@ -50,17 +50,8 @@ export function DrinkGridButton({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressRef = useRef(false);
   const suppressClickRef = useRef(false);
-  const previousPendingRef = useRef(button.pendingCount);
-  const [attentionKey, setAttentionKey] = useState(0);
   const palette = COLOR_CLASSES[button.color];
   const scale = SCALE_CLASSES[cardScale];
-
-  useEffect(() => {
-    if (button.pendingCount > previousPendingRef.current) {
-      setAttentionKey((current) => current + 1);
-    }
-    previousPendingRef.current = button.pendingCount;
-  }, [button.pendingCount]);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -132,12 +123,11 @@ export function DrinkGridButton({
       </span>
       {button.pendingCount > 0 && (
         <span
-          key={`${button.id}-${attentionKey}`}
           className={[
             "absolute right-2 top-2 flex items-center justify-center rounded-full font-black shadow-[0_4px_10px_rgba(185,28,28,0.30)]",
             palette.badge,
             scale.badge,
-            attentionKey > 0 ? "rbbc-queue-badge-pulse" : "",
+            "rbbc-queue-badge-active",
           ].join(" ")}
         >
           {button.pendingCount}

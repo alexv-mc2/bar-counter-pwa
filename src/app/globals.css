@@ -20,14 +20,14 @@ button:disabled {
   cursor: not-allowed;
 }
 
-@keyframes rbbc-queue-badge-pulse {
+@keyframes rbbc-queue-badge-breathe {
   0% {
     transform: scale(1);
     box-shadow: 0 4px 10px rgba(185, 28, 28, 0.3);
   }
-  35% {
-    transform: scale(1.18);
-    box-shadow: 0 0 0 8px rgba(220, 38, 38, 0.16), 0 8px 18px rgba(185, 28, 28, 0.28);
+  50% {
+    transform: scale(1.07);
+    box-shadow: 0 0 0 6px rgba(220, 38, 38, 0.12), 0 6px 14px rgba(185, 28, 28, 0.26);
   }
   100% {
     transform: scale(1);
@@ -35,8 +35,8 @@ button:disabled {
   }
 }
 
-.rbbc-queue-badge-pulse {
-  animation: rbbc-queue-badge-pulse 800ms ease-out 1;
+.rbbc-queue-badge-active {
+  animation: rbbc-queue-badge-breathe 1800ms ease-in-out infinite;
 }
 
 .rbbc-product-grid {

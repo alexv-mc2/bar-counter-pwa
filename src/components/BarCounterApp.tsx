@@ -103,23 +103,14 @@ function formatButtonCountPreset(preset: ButtonCountPreset, locale: Locale) {
 
 function RollingBadgerLogo() {
   return (
-    <div
-      className="flex min-w-36 select-none items-center gap-3 leading-none"
-      aria-label="Rolling Badger Bar"
-    >
-      <span className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-red-700 text-white shadow-[0_8px_18px_rgba(185,28,28,0.22)]">
-        <span className="absolute top-3 h-7 w-4 rotate-[-18deg] rounded-full bg-white" />
-        <span className="absolute top-3 h-7 w-4 rotate-[18deg] rounded-full bg-white" />
-        <span className="relative mt-2 h-8 w-7 rounded-b-2xl rounded-t-lg bg-stone-950" />
-      </span>
-      <span className="flex flex-col items-start">
-        <span className="text-xl font-black tracking-tight text-stone-950">Rolling</span>
-        <span className="-mt-1 text-2xl font-black tracking-tight text-red-700">
-          Badger
-        </span>
-        <span className="-mt-1 text-xl font-black tracking-tight text-stone-950">Bar</span>
-      </span>
-    </div>
+    // Static public asset is required here so the logo path stays literal.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/brand/rolling-badger-logo.png"
+      alt="Rolling Badger Bar"
+      className="h-16 w-40 select-none object-contain object-left md:h-20 md:w-52"
+      draggable={false}
+    />
   );
 }
 
@@ -1148,6 +1139,7 @@ export function BarCounterApp() {
     if (!activeEvent) return;
     const updated = await serveDrink(activeEvent, buttonId, amount);
     await applyEventUpdate(updated);
+    if (getPendingQueue(updated).total === 0) setQueueOpen(false);
   };
 
   const openResults = async (event: BarEvent) => {
@@ -1444,8 +1436,8 @@ export function BarCounterApp() {
 
       {screen === "event" && activeEvent && (
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-red-100/80 bg-[#fffdfa]/90 px-4 py-3 md:px-8">
-            <div className="flex flex-wrap gap-3">
+          <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-red-100/80 bg-[#fffdfa]/90 px-4 py-3 md:px-8">
+            <div className="flex w-full flex-wrap items-center gap-3">
               <IconButton
                 icon={<UndoIcon />}
                 variant={undoMode ? "solid" : "outline"}
@@ -1453,12 +1445,23 @@ export function BarCounterApp() {
               >
                 {undoMode ? m.undoMode : m.undo}
               </IconButton>
+              <IconButton icon={<QueueIcon />} variant="outline" onClick={openQueue}>
+                {m.queue}
+                {pendingQueueTotal > 0 ? ` ${pendingQueueTotal}` : ""}
+              </IconButton>
               <IconButton
                 icon={<QueueIcon />}
                 variant={serveMode ? "solid" : "outline"}
                 onClick={toggleServeMode}
               >
                 {serveMode ? m.serveMode : m.serve}
+              </IconButton>
+              <IconButton
+                icon={<BarChartIcon />}
+                variant="outline"
+                onClick={() => void openResults(activeEvent)}
+              >
+                {m.results}
               </IconButton>
               {activeEvent.isActive && (
                 <IconButton
@@ -1469,19 +1472,6 @@ export function BarCounterApp() {
                   {m.closeEvent}
                 </IconButton>
               )}
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <IconButton icon={<QueueIcon />} variant="outline" onClick={openQueue}>
-                {m.queue}
-                {pendingQueueTotal > 0 ? ` ${pendingQueueTotal}` : ""}
-              </IconButton>
-              <IconButton
-                icon={<BarChartIcon />}
-                variant="outline"
-                onClick={() => void openResults(activeEvent)}
-              >
-                {m.results}
-              </IconButton>
               <IconButton
                 icon={<DownloadIcon />}
                 variant="solid"
