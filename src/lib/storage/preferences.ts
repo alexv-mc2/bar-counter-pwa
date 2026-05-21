@@ -10,6 +10,8 @@ import { EVENT_CATEGORY_ORDER, normalizeDrinkCategory } from "@/lib/types";
 const LOCALE_KEY = "rbbc.locale";
 const LAST_EVENT_KEY = "rbbc.lastActiveEventId";
 const BUTTON_COUNT_PRESET_KEY = "rbbc.buttonCountPreset";
+const NEW_EVENT_QUEUE_DEFAULT_KEY = "rbbc.newEvent.queueEnabled";
+const NEW_EVENT_CATEGORIES_DEFAULT_KEY = "rbbc.newEvent.categoriesEnabled";
 const PIN_HASH_KEY = "rbbc.pinHash";
 const CUSTOM_DRINK_TEMPLATES_KEY = "rbbc.customDrinkTemplates";
 const BUTTON_COUNT_MIN = 1;
@@ -54,6 +56,24 @@ export function getButtonCountPreset(): ButtonCountPreset {
 
 export function setButtonCountPreset(preset: ButtonCountPreset): void {
   localStorage.setItem(BUTTON_COUNT_PRESET_KEY, String(normalizeButtonCountPreset(preset)));
+}
+
+export function getNewEventQueueDefault(): boolean {
+  if (typeof window === "undefined") return true;
+  return localStorage.getItem(NEW_EVENT_QUEUE_DEFAULT_KEY) !== "false";
+}
+
+export function setNewEventQueueDefault(enabled: boolean): void {
+  localStorage.setItem(NEW_EVENT_QUEUE_DEFAULT_KEY, enabled ? "true" : "false");
+}
+
+export function getNewEventCategoriesDefault(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(NEW_EVENT_CATEGORIES_DEFAULT_KEY) === "true";
+}
+
+export function setNewEventCategoriesDefault(enabled: boolean): void {
+  localStorage.setItem(NEW_EVENT_CATEGORIES_DEFAULT_KEY, enabled ? "true" : "false");
 }
 
 function isDrinkTemplate(value: unknown): value is DrinkTemplate {

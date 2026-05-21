@@ -46,12 +46,16 @@ import {
   getCustomDrinkTemplates,
   getLastActiveEventId,
   getLocale,
+  getNewEventCategoriesDefault,
+  getNewEventQueueDefault,
   hasPin,
   isValidPin,
   normalizeButtonCountPreset,
   saveCustomDrinkTemplate,
   setButtonCountPreset,
   setLocale,
+  setNewEventCategoriesDefault as setNewEventCategoriesDefaultPref,
+  setNewEventQueueDefault as setNewEventQueueDefaultPref,
   setPin,
   verifyPin,
 } from "@/lib/storage/preferences";
@@ -704,14 +708,22 @@ function SettingsModal({
   locale,
   m,
   pinEnabled,
+  newEventQueueDefault,
+  newEventCategoriesDefault,
   onLocaleChange,
+  onNewEventQueueDefaultChange,
+  onNewEventCategoriesDefaultChange,
   onPinEnabledChange,
   onClose,
 }: {
   locale: Locale;
   m: Messages;
   pinEnabled: boolean;
+  newEventQueueDefault: boolean;
+  newEventCategoriesDefault: boolean;
   onLocaleChange: (locale: Locale) => void;
+  onNewEventQueueDefaultChange: (enabled: boolean) => void;
+  onNewEventCategoriesDefaultChange: (enabled: boolean) => void;
   onPinEnabledChange: (enabled: boolean) => void;
   onClose: () => void;
 }) {
@@ -776,6 +788,44 @@ function SettingsModal({
             {m.language}
           </p>
           <LanguageSwitcher locale={locale} onChange={onLocaleChange} />
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-red-100 bg-white/80 p-4">
+          <p className="mb-3 text-sm font-black uppercase tracking-wide text-stone-500">
+            {m.menuSetupTitle}
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => onNewEventQueueDefaultChange(!newEventQueueDefault)}
+              className={`min-h-12 rounded-2xl border-2 px-4 py-3 text-left font-black ${
+                newEventQueueDefault
+                  ? "border-red-700 bg-red-50 text-red-800"
+                  : "border-stone-300 bg-white text-stone-600"
+              }`}
+            >
+              <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-md border-2 border-current text-sm leading-none">
+                {newEventQueueDefault ? "✓" : ""}
+              </span>
+              {m.queueEnabledLabel}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onNewEventCategoriesDefaultChange(!newEventCategoriesDefault)
+              }
+              className={`min-h-12 rounded-2xl border-2 px-4 py-3 text-left font-black ${
+                newEventCategoriesDefault
+                  ? "border-red-700 bg-red-50 text-red-800"
+                  : "border-stone-300 bg-white text-stone-600"
+              }`}
+            >
+              <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-md border-2 border-current text-sm leading-none">
+                {newEventCategoriesDefault ? "✓" : ""}
+              </span>
+              {m.categoriesEnabledLabel}
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 rounded-2xl border border-red-100 bg-white/80 p-4">
@@ -1156,9 +1206,10 @@ export function BarCounterApp() {
   const [events, setEvents] = useState<BarEvent[]>([]);
   const [activeEvent, setActiveEventState] = useState<BarEvent | null>(null);
   const [eventName, setEventName] = useState("");
-  const [createQueueEnabled, setCreateQueueEnabled] = useState(true);
-  const [createCategoriesEnabled, setCreateCategoriesEnabled] = useState(false);
   const [createSelectedTemplateIds, setCreateSelectedTemplateIds] = useState<string[]>([]);
+  const [newEventQueueDefault, setNewEventQueueDefaultState] = useState(true);
+  const [newEventCategoriesDefault, setNewEventCategoriesDefaultState] =
+    useState(false);
   const [undoMode, setUndoMode] = useState(false);
   const [serveMode, setServeMode] = useState(false);
   const [eventMessage, setEventMessage] = useState<EventMessage | null>(null);
@@ -1207,15 +1258,11 @@ export function BarCounterApp() {
   useEffect(() => {
     setLocaleState(getLocale());
     setButtonCountPresetState(getButtonCountPreset());
+    setNewEventQueueDefaultState(getNewEventQueueDefault());
+    setNewEventCategoriesDefaultState(getNewEventCategoriesDefault());
     setPinEnabledState(hasPin());
     setCustomTemplates(getCustomDrinkTemplates());
   }, []);
-
-  useEffect(() => {
-    if (createSelectedTemplateIds.length > 0) return;
-    const initial = drinkTemplates.slice(0, 16).map((template) => template.id);
-    setCreateSelectedTemplateIds(initial);
-  }, [createSelectedTemplateIds.length, drinkTemplates]);
 
   useEffect(() => {
     const allowed = new Set(drinkTemplates.map((template) => template.id));
@@ -1246,6 +1293,16 @@ export function BarCounterApp() {
     setLocaleState(next);
   };
 
+  const setNewEventQueueDefault = (enabled: boolean) => {
+    setNewEventQueueDefaultState(enabled);
+    setNewEventQueueDefaultPref(enabled);
+  };
+
+  const setNewEventCategoriesDefault = (enabled: boolean) => {
+    setNewEventCategoriesDefaultState(enabled);
+    setNewEventCategoriesDefaultPref(enabled);
+  };
+
   const requestProtectedAction = (action: () => void | Promise<void>) => {
     if (!pinEnabled) {
       void action();
@@ -1271,14 +1328,12 @@ export function BarCounterApp() {
       name: eventName,
       locale,
       selectedTemplates,
-      queueEnabled: createQueueEnabled,
-      categoriesEnabled: createCategoriesEnabled,
+      queueEnabled: newEventQueueDefault,
+      categoriesEnabled: newEventCategoriesDefault,
     });
     setActiveEventState(event);
     setEventName("");
-    setCreateQueueEnabled(true);
-    setCreateCategoriesEnabled(false);
-    setCreateSelectedTemplateIds(drinkTemplates.slice(0, 16).map((template) => template.id));
+    setCreateSelectedTemplateIds([]);
     setSelectedEventCategory(firstCategoryWithButtons(event.buttons));
     setScreen("event");
     await refresh();
@@ -1571,7 +1626,11 @@ export function BarCounterApp() {
             )}
             <button
               type="button"
-              onClick={() => setScreen("create")}
+              onClick={() => {
+                setEventName("");
+                setCreateSelectedTemplateIds([]);
+                setScreen("create");
+              }}
               className="min-h-16 rounded-2xl bg-red-700 px-6 py-4 text-lg font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800"
             >
               {m.createEvent}
@@ -1600,36 +1659,6 @@ export function BarCounterApp() {
               onChange={(e) => setEventName(e.target.value)}
               placeholder={locale === "de" ? "Freitag Bar" : "Пятничный бар"}
             />
-            <div className="mb-5 grid gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setCreateQueueEnabled((current) => !current)}
-                className={`min-h-12 rounded-2xl border-2 px-4 py-3 text-left font-black ${
-                  createQueueEnabled
-                    ? "border-red-700 bg-red-50 text-red-800"
-                    : "border-stone-300 bg-white text-stone-600"
-                }`}
-              >
-                <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-md border-2 border-current text-sm leading-none">
-                  {createQueueEnabled ? "✓" : ""}
-                </span>
-                {m.queueEnabledLabel}
-              </button>
-              <button
-                type="button"
-                onClick={() => setCreateCategoriesEnabled((current) => !current)}
-                className={`min-h-12 rounded-2xl border-2 px-4 py-3 text-left font-black ${
-                  createCategoriesEnabled
-                    ? "border-red-700 bg-red-50 text-red-800"
-                    : "border-stone-300 bg-white text-stone-600"
-                }`}
-              >
-                <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-md border-2 border-current text-sm leading-none">
-                  {createCategoriesEnabled ? "✓" : ""}
-                </span>
-                {m.categoriesEnabledLabel}
-              </button>
-            </div>
             <div className="mb-2 flex items-center justify-between gap-3">
               <p className="text-sm font-black uppercase tracking-wide text-stone-500">
                 {m.menuSetupTitle}
@@ -1638,7 +1667,7 @@ export function BarCounterApp() {
                 {m.selectedProducts}: {selectedProductsCount}/{MAX_BUTTON_COUNT}
               </p>
             </div>
-            <div className="mb-6 max-h-[48vh] space-y-4 overflow-y-auto rounded-2xl border border-stone-200 bg-white/70 p-4">
+            <div className="mb-6 space-y-4 rounded-2xl border border-stone-200 bg-white/70 p-4">
               {createGroups.map((group) => (
                 <div key={group.category} className="rounded-2xl border border-stone-200/80 bg-white/80 p-3">
                   <h3 className="mb-2 text-base font-black text-stone-900">
@@ -2006,7 +2035,11 @@ export function BarCounterApp() {
           locale={locale}
           m={m}
           pinEnabled={pinEnabled}
+          newEventQueueDefault={newEventQueueDefault}
+          newEventCategoriesDefault={newEventCategoriesDefault}
           onLocaleChange={changeLocale}
+          onNewEventQueueDefaultChange={setNewEventQueueDefault}
+          onNewEventCategoriesDefaultChange={setNewEventCategoriesDefault}
           onPinEnabledChange={setPinEnabledState}
           onClose={() => setSettingsOpen(false)}
         />
