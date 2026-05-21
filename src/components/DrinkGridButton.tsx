@@ -182,6 +182,7 @@ export function DrinkGridButton({
   button,
   undoMode,
   serveMode,
+  editMode,
   cardScale = "compact",
   onTap,
   onLongPress,
@@ -189,6 +190,7 @@ export function DrinkGridButton({
   button: DrinkButton;
   undoMode: boolean;
   serveMode: boolean;
+  editMode: boolean;
   cardScale?: DrinkCardScale;
   onTap: (buttonId: string) => void;
   onLongPress: (button: DrinkButton) => void;
@@ -214,10 +216,12 @@ export function DrinkGridButton({
       className={[
         "rbbc-product-card group relative flex h-full min-h-0 select-none flex-col items-center justify-center gap-1 overflow-hidden rounded-[18px] border border-red-200/70 bg-white/90 px-2 py-1.5 text-center sm:px-3 sm:py-2",
         "shadow-[0_3px_12px_rgba(120,53,15,0.10)] transition-all active:scale-[0.985] active:shadow-sm",
+        editMode && "ring-4 ring-amber-400 ring-offset-2",
         undoMode && "ring-4 ring-dashed ring-red-500 ring-offset-2",
         serveMode && !undoMode && "ring-4 ring-emerald-500 ring-offset-2",
         !undoMode &&
           !serveMode &&
+          !editMode &&
           "hover:border-red-300 hover:shadow-[0_8px_18px_rgba(120,53,15,0.12)]",
       ]
         .filter(Boolean)
@@ -258,11 +262,15 @@ export function AddProductButton({
   cardScale = "compact",
   label,
   hint,
+  editMode,
+  onTap,
   onLongPress,
 }: {
   cardScale?: DrinkCardScale;
   label: string;
   hint: string;
+  editMode: boolean;
+  onTap?: () => void;
   onLongPress: () => void;
 }) {
   const scale = SCALE_CLASSES[cardScale];
@@ -273,8 +281,16 @@ export function AddProductButton({
       type="button"
       data-add-product-button="true"
       {...pointerHandlers}
-      onClick={handleClick}
-      className="relative flex h-full min-h-0 select-none flex-col items-center justify-center gap-1 overflow-hidden rounded-[18px] border-2 border-dashed border-stone-300/80 bg-white/45 px-2 py-1.5 text-center text-stone-400 shadow-[0_3px_10px_rgba(120,53,15,0.05)] active:scale-[0.985] active:bg-stone-50 sm:px-3 sm:py-2"
+      onClick={(event) => {
+        if (!handleClick(event)) return;
+        onTap?.();
+      }}
+      className={[
+        "relative flex h-full min-h-0 select-none flex-col items-center justify-center gap-1 overflow-hidden rounded-[18px] border-2 border-dashed border-stone-300/80 bg-white/45 px-2 py-1.5 text-center text-stone-400 shadow-[0_3px_10px_rgba(120,53,15,0.05)] active:scale-[0.985] active:bg-stone-50 sm:px-3 sm:py-2",
+        editMode && "border-amber-400 bg-amber-50/70 text-stone-600 ring-4 ring-amber-200 ring-offset-2",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       aria-label={label}
     >
       <span

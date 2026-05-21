@@ -5,6 +5,7 @@ import type {
   DrinkTemplate,
   Locale,
 } from "@/lib/types";
+import { DRINK_TEMPLATES } from "@/lib/templates/drinks";
 import { EVENT_CATEGORY_ORDER, normalizeDrinkCategory } from "@/lib/types";
 
 const LOCALE_KEY = "rbbc.locale";
@@ -30,6 +31,7 @@ const DRINK_ICONS: DrinkIcon[] = [
   "tea",
   "other",
 ];
+const BUILT_IN_TEMPLATE_IDS = new Set(DRINK_TEMPLATES.map((template) => template.id));
 
 export function getLocale(): Locale {
   if (typeof window === "undefined") return "ru";
@@ -76,6 +78,39 @@ export function setNewEventCategoriesDefault(enabled: boolean): void {
   localStorage.setItem(NEW_EVENT_CATEGORIES_DEFAULT_KEY, enabled ? "true" : "false");
 }
 
+function stableTemplateHash(value: string): string {
+  let hash = 0x811c9dc5;
+  for (const char of value) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function uniqueCustomTemplateId(
+  template: DrinkTemplate,
+  index: number,
+  usedIds: Set<string>,
+): string {
+  const currentId = template.id.trim();
+  if (
+    currentId.startsWith("custom-") &&
+    !BUILT_IN_TEMPLATE_IDS.has(currentId) &&
+    !usedIds.has(currentId)
+  ) {
+    return currentId;
+  }
+
+  const source = `${template.labels.ru}:${template.labels.de}:${template.category}:${index}`;
+  let nextId = `custom-${stableTemplateHash(source)}`;
+  let suffix = 2;
+  while (BUILT_IN_TEMPLATE_IDS.has(nextId) || usedIds.has(nextId)) {
+    nextId = `custom-${stableTemplateHash(`${source}:${suffix}`)}`;
+    suffix += 1;
+  }
+  return nextId;
+}
+
 function isDrinkTemplate(value: unknown): value is DrinkTemplate {
   if (!value || typeof value !== "object") return false;
   const item = value as Partial<DrinkTemplate>;
@@ -89,15 +124,58 @@ function isDrinkTemplate(value: unknown): value is DrinkTemplate {
   );
 }
 
+function normalizeCustomDrinkTemplates(values: unknown[]): {
+  changed: boolean;
+  templates: DrinkTemplate[];
+} {
+  let changed = false;
+  const usedIds = new Set<string>();
+  const templates: DrinkTemplate[] = [];
+
+  values.forEach((value, index) => {
+    if (!isDrinkTemplate(value)) {
+      changed = true;
+      return;
+    }
+
+    const source = value as DrinkTemplate;
+    const ru = source.labels.ru.trim();
+    const de = source.labels.de.trim() || ru;
+    const category = normalizeDrinkCategory(source.category);
+    const template: DrinkTemplate = {
+      id: source.id.trim(),
+      category,
+      icon: source.icon,
+      color: source.color,
+      labels: { ru, de },
+    };
+    const nextId = uniqueCustomTemplateId(template, index, usedIds);
+    if (
+      nextId !== source.id ||
+      category !== source.category ||
+      ru !== source.labels.ru ||
+      de !== source.labels.de
+    ) {
+      changed = true;
+    }
+
+    usedIds.add(nextId);
+    templates.push({ ...template, id: nextId });
+  });
+
+  return { changed, templates: templates.slice(-64) };
+}
+
 export function getCustomDrinkTemplates(): DrinkTemplate[] {
   if (typeof window === "undefined") return [];
   try {
     const parsed = JSON.parse(localStorage.getItem(CUSTOM_DRINK_TEMPLATES_KEY) ?? "[]");
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isDrinkTemplate).map((item) => ({
-      ...item,
-      category: normalizeDrinkCategory(item.category),
-    }));
+    const { changed, templates } = normalizeCustomDrinkTemplates(parsed);
+    if (changed) {
+      localStorage.setItem(CUSTOM_DRINK_TEMPLATES_KEY, JSON.stringify(templates));
+    }
+    return templates;
   } catch {
     return [];
   }
@@ -106,9 +184,11 @@ export function getCustomDrinkTemplates(): DrinkTemplate[] {
 export function saveCustomDrinkTemplate(template: DrinkTemplate): DrinkTemplate[] {
   if (typeof window === "undefined") return [];
   const current = getCustomDrinkTemplates();
+  const { templates } = normalizeCustomDrinkTemplates([...current, template]);
+  const normalizedTemplate = templates.at(-1) ?? template;
   const next = [
-    ...current.filter((item) => item.id !== template.id),
-    template,
+    ...current.filter((item) => item.id !== normalizedTemplate.id),
+    normalizedTemplate,
   ].slice(-64);
   localStorage.setItem(CUSTOM_DRINK_TEMPLATES_KEY, JSON.stringify(next));
   return next;

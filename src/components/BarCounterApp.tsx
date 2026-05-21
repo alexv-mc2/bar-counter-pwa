@@ -65,6 +65,8 @@ import type {
   ButtonCountPreset,
   DrinkCategory,
   DrinkButton,
+  DrinkColor,
+  DrinkIcon,
   DrinkTemplate,
   Locale,
 } from "@/lib/types";
@@ -83,6 +85,15 @@ type ProductGridStyle = CSSProperties & {
 const BUTTON_COUNT_PRESETS: readonly ButtonCountPreset[] = [4, 5, 6, 7, 8, 12, 16];
 const MIN_BUTTON_COUNT = 1;
 const MAX_BUTTON_COUNT = 16;
+const CATEGORY_DEFAULTS: Record<DrinkCategory, { icon: DrinkIcon; color: DrinkColor }> = {
+  cocktail: { icon: "cocktail", color: "red" },
+  mocktail: { icon: "mocktail", color: "green" },
+  beer: { icon: "beer", color: "amber" },
+  wine: { icon: "wine", color: "red" },
+  soft: { icon: "cup", color: "blue" },
+  warm: { icon: "coffee", color: "amber" },
+  other: { icon: "other", color: "slate" },
+};
 
 function getProductGridLayout(count: number): {
   columns: number;
@@ -126,6 +137,10 @@ function newCustomTemplateId(): string {
   return `custom-${Date.now()}-${crypto.randomUUID()}`;
 }
 
+function newButtonId(): string {
+  return `button-${Date.now()}-${crypto.randomUUID()}`;
+}
+
 function canReuseButtonSlot(button: DrinkButton): boolean {
   return button.count <= 0 && button.pendingCount <= 0;
 }
@@ -158,6 +173,14 @@ function rankVisibleSlot(sortedButtons: DrinkButton[], buttonId: string): number
   return sortedButtons
     .filter((button) => button.isVisible !== false)
     .findIndex((button) => button.id === buttonId);
+}
+
+function nextSlotIndex(sortedButtons: DrinkButton[]): number {
+  const used = new Set(sortedButtons.map((button) => button.slotIndex));
+  for (let index = 0; index < MAX_BUTTON_COUNT; index += 1) {
+    if (!used.has(index)) return index;
+  }
+  return sortedButtons.length;
 }
 
 function groupTemplatesByCategory(templates: DrinkTemplate[]) {
@@ -992,6 +1015,7 @@ function SettingsModal({
           <button
             type="button"
             onClick={onClose}
+            data-settings-close="true"
             className="min-h-14 flex-1 rounded-2xl border-2 border-stone-300 bg-white px-4 py-3 font-black text-stone-700 active:bg-stone-100"
           >
             {m.close}
@@ -1000,6 +1024,7 @@ function SettingsModal({
             type="button"
             onClick={() => void handleSaveEventSettings()}
             disabled={saving}
+            data-settings-save="true"
             className="min-h-14 flex-1 rounded-2xl bg-red-700 px-4 py-3 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800 disabled:cursor-not-allowed disabled:opacity-45"
           >
             {m.save}
@@ -1291,6 +1316,7 @@ export function BarCounterApp() {
     useState(false);
   const [undoMode, setUndoMode] = useState(false);
   const [serveMode, setServeMode] = useState(false);
+  const [menuEditMode, setMenuEditMode] = useState(false);
   const [eventMessage, setEventMessage] = useState<EventMessage | null>(null);
   const [selectedEventCategory, setSelectedEventCategory] = useState<DrinkCategory>("cocktail");
   const [editingButton, setEditingButton] = useState<DrinkButton | null>(null);
@@ -1357,6 +1383,12 @@ export function BarCounterApp() {
       setQueueOpen(false);
     }
   }, [activeEvent?.queueEnabled]);
+
+  useEffect(() => {
+    if (!activeEvent || screen !== "event") {
+      setMenuEditMode(false);
+    }
+  }, [activeEvent, screen]);
 
   const changeLocale = (next: Locale) => {
     setLocale(next);
@@ -1444,6 +1476,11 @@ export function BarCounterApp() {
 
   const handleTap = async (buttonId: string) => {
     if (!activeEvent) return;
+    if (menuEditMode) {
+      const button = activeEvent.buttons.find((item) => item.id === buttonId);
+      if (button) setEditingButton(button);
+      return;
+    }
     if (undoMode) {
       const updated = await undoDrink(activeEvent, buttonId);
       setUndoMode(false);
@@ -1487,6 +1524,7 @@ export function BarCounterApp() {
     await closeActiveEvent();
     setUndoMode(false);
     setServeMode(false);
+    setMenuEditMode(false);
     setEventMessage(null);
     setScreen("home");
     await refresh();
@@ -1507,6 +1545,7 @@ export function BarCounterApp() {
       setActiveEventState(null);
       setUndoMode(false);
       setServeMode(false);
+      setMenuEditMode(false);
       setEventMessage(null);
       setScreen("home");
     }
@@ -1565,7 +1604,28 @@ export function BarCounterApp() {
       { ...patch, count: 0, pendingCount: 0, isVisible: true },
       options?.saveAsTemplate,
     );
-    const updated = await updateButton(activeEvent, addingButton.id, patched);
+    const buttonExists = activeEvent.buttons.some((button) => button.id === addingButton.id);
+    const updated = buttonExists
+      ? await updateButton(activeEvent, addingButton.id, patched)
+      : await saveEvent({
+          ...activeEvent,
+          buttons: [
+            ...activeEvent.buttons,
+            {
+              ...addingButton,
+              ...patched,
+              id: addingButton.id,
+              slotIndex: addingButton.slotIndex,
+              name: (patched.name ?? addingButton.name).trim() || addingButton.name,
+              category: patched.category ?? addingButton.category,
+              icon: patched.icon ?? addingButton.icon,
+              color: patched.color ?? addingButton.color,
+              count: 0,
+              pendingCount: 0,
+              isVisible: true,
+            },
+          ],
+        });
     const sortedUpdatedButtons = [...updated.buttons].sort((a, b) => a.slotIndex - b.slotIndex);
     const visibleRank = rankVisibleSlot(sortedUpdatedButtons, addingButton.id);
     if (visibleRank >= buttonCountPresetState) {
@@ -1653,7 +1713,8 @@ export function BarCounterApp() {
     : presetVisibleButtons;
   const visibleButtons = categoryFilteredButtons;
   const addButtonSlot = findAddButtonSlot(sortedButtons, buttonCountPresetState);
-  const showAddButton = Boolean(addButtonSlot) && visibleButtons.length < MAX_BUTTON_COUNT;
+  const canAddProduct = Boolean(addButtonSlot) || sortedButtons.length < MAX_BUTTON_COUNT;
+  const showAddButton = canAddProduct && visibleButtons.length < MAX_BUTTON_COUNT;
   const gridItemCount = visibleButtons.length + (showAddButton ? 1 : 0);
   const gridLayout = getProductGridLayout(Math.max(1, gridItemCount));
   const productGridStyle: ProductGridStyle = {
@@ -1674,21 +1735,42 @@ export function BarCounterApp() {
   };
   const openSettings = () => setSettingsOpen(true);
   const openAddProduct = () => {
-    if (!addButtonSlot) return;
-    setAddingButton(addButtonSlot);
+    if (!canAddProduct) return;
+    const category = categoriesEnabled ? effectiveSelectedCategory : "other";
+    const defaults = CATEGORY_DEFAULTS[category];
+    const sourceSlot = addButtonSlot;
+    setAddingButton({
+      id: sourceSlot?.id ?? newButtonId(),
+      slotIndex: sourceSlot?.slotIndex ?? nextSlotIndex(sortedButtons),
+      name: m.addProduct,
+      templateId: undefined,
+      category,
+      icon: defaults.icon,
+      color: defaults.color,
+      isVisible: true,
+      count: 0,
+      pendingCount: 0,
+    });
   };
   const openActiveResults = () => {
     if (!activeEvent) return;
     void openResults(activeEvent);
   };
   const toggleUndoMode = () => {
+    setMenuEditMode(false);
     setServeMode(false);
     setUndoMode((current) => !current);
   };
   const toggleServeMode = () => {
     if (!queueEnabled) return;
+    setMenuEditMode(false);
     setUndoMode(false);
     setServeMode((current) => !current);
+  };
+  const toggleMenuEditMode = () => {
+    setUndoMode(false);
+    setServeMode(false);
+    setMenuEditMode((current) => !current);
   };
 
   useEffect(() => {
@@ -2018,6 +2100,25 @@ export function BarCounterApp() {
                   {m.exportCsv}
                 </IconButton>
               </div>
+              <div className="flex w-full items-center gap-2">
+                <button
+                  type="button"
+                  data-menu-edit-toggle="true"
+                  onClick={toggleMenuEditMode}
+                  className={`min-h-10 rounded-xl border-2 px-4 py-2 text-sm font-black transition ${
+                    menuEditMode
+                      ? "border-amber-500 bg-amber-100 text-stone-950 shadow-[0_4px_12px_rgba(180,83,9,0.18)]"
+                      : "border-stone-300 bg-white/80 text-stone-700 active:bg-stone-100"
+                  }`}
+                >
+                  {m.editMenu}
+                </button>
+                {menuEditMode && (
+                  <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-black text-stone-700 sm:text-sm">
+                    {m.editMenuActive}
+                  </p>
+                )}
+              </div>
               {eventMessage && (
                 <p className="w-full rounded-xl bg-red-50 px-3 py-2 text-center text-xs font-black text-red-700 sm:text-sm">
                   {m[eventMessage]}
@@ -2043,6 +2144,7 @@ export function BarCounterApp() {
                       button={button}
                       undoMode={undoMode}
                       serveMode={serveMode}
+                      editMode={menuEditMode}
                       cardScale={gridLayout.cardScale}
                       onTap={(id) => void handleTap(id)}
                       onLongPress={setEditingButton}
@@ -2053,6 +2155,8 @@ export function BarCounterApp() {
                       cardScale={gridLayout.cardScale}
                       label={m.addProduct}
                       hint={m.addProductHint}
+                      editMode={menuEditMode}
+                      onTap={menuEditMode ? openAddProduct : undefined}
                       onLongPress={openAddProduct}
                     />
                   )}
