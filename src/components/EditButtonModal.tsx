@@ -15,11 +15,10 @@ import type {
 const CATEGORIES: DrinkCategory[] = [
   "cocktail",
   "mocktail",
-  "coffee",
+  "warm",
   "soft",
   "beer",
   "wine",
-  "tea",
   "other",
 ];
 const COLORS: DrinkColor[] = ["amber", "blue", "green", "red", "purple", "slate"];

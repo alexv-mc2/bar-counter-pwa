@@ -12,8 +12,10 @@ import type {
   ButtonTemplateSnapshot,
   DrinkButton,
   DrinkButtonConfig,
+  DrinkTemplate,
   TapLogEntry,
 } from "@/lib/types";
+import { normalizeDrinkCategory } from "@/lib/types";
 import { getLastActiveEventId, setLastActiveEventId } from "@/lib/storage/preferences";
 
 const TEMPLATE_DOC_ID = "latest";
@@ -56,12 +58,20 @@ function normalizeCount(value: unknown): number {
 function normalizeButton(button: DrinkButton): DrinkButton {
   const count = normalizeCount(button.count);
   const pendingCount = Math.min(count, normalizeCount(button.pendingCount));
-  return { ...button, isVisible: button.isVisible !== false, count, pendingCount };
+  return {
+    ...button,
+    category: normalizeDrinkCategory(button.category),
+    isVisible: button.isVisible !== false,
+    count,
+    pendingCount,
+  };
 }
 
 function normalizeEvent(event: BarEvent): BarEvent {
   return {
     ...event,
+    queueEnabled: event.queueEnabled !== false,
+    categoriesEnabled: event.categoriesEnabled === true,
     buttons: event.buttons.map(normalizeButton),
   };
 }
@@ -101,6 +111,25 @@ export async function getActiveEvent(): Promise<BarEvent | undefined> {
 }
 
 export async function createEvent(name: string, locale: "ru" | "de"): Promise<BarEvent> {
+  return createEventWithOptions({
+    name,
+    locale,
+  });
+}
+
+export async function createEventWithOptions({
+  name,
+  locale,
+  selectedTemplates,
+  queueEnabled = true,
+  categoriesEnabled = false,
+}: {
+  name: string;
+  locale: "ru" | "de";
+  selectedTemplates?: DrinkTemplate[];
+  queueEnabled?: boolean;
+  categoriesEnabled?: boolean;
+}): Promise<BarEvent> {
   const existing = await listEvents();
   for (const event of existing.filter((e) => e.isActive)) {
     event.isActive = false;
@@ -109,10 +138,27 @@ export async function createEvent(name: string, locale: "ru" | "de"): Promise<Ba
   }
 
   const template = await getButtonTemplate();
-  const buttons: DrinkButton[] = template
+  const sourceTemplates = selectedTemplates
+    ?.slice(0, 16)
+    .map((entry, slotIndex) => ({
+      id: newId(),
+      slotIndex,
+      name: entry.labels[locale],
+      templateId: entry.id,
+      category: normalizeDrinkCategory(entry.category),
+      icon: entry.icon,
+      color: entry.color,
+      isVisible: true,
+      count: 0,
+      pendingCount: 0,
+    }));
+  const buttons: DrinkButton[] = sourceTemplates?.length
+    ? sourceTemplates
+    : template
     ? template.map((config) => ({
         ...config,
         id: newId(),
+        category: normalizeDrinkCategory(config.category),
         isVisible: config.isVisible !== false,
         count: 0,
         pendingCount: 0,
@@ -126,6 +172,8 @@ export async function createEvent(name: string, locale: "ru" | "de"): Promise<Ba
     createdAt: now,
     updatedAt: now,
     isActive: true,
+    queueEnabled,
+    categoriesEnabled,
     buttons,
   };
 
@@ -208,13 +256,25 @@ export async function updateButton(
 }
 
 export async function orderDrink(event: BarEvent, buttonId: string): Promise<BarEvent> {
+  return orderDrinkWithQueueMode(event, buttonId, event.queueEnabled !== false);
+}
+
+export async function orderDrinkWithQueueMode(
+  event: BarEvent,
+  buttonId: string,
+  queueEnabled: boolean,
+): Promise<BarEvent> {
   const normalized = normalizeEvent(event);
   const button = normalized.buttons.find((b) => b.id === buttonId);
   if (!button) return event;
 
   const buttons = normalized.buttons.map((b) =>
     b.id === buttonId
-      ? { ...b, count: b.count + 1, pendingCount: b.pendingCount + 1 }
+      ? {
+          ...b,
+          count: b.count + 1,
+          pendingCount: queueEnabled ? b.pendingCount + 1 : b.pendingCount,
+        }
       : b,
   );
   const updated = await saveEvent({ ...normalized, buttons });

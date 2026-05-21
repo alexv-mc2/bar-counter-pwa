@@ -121,7 +121,10 @@ export function DrinkIconView({
   category?: DrinkCategory;
   className?: string;
 }) {
-  if (category === "coffee" || icon === "coffee") {
+  if (icon === "tea") {
+    return <TeaIllustration className={className} />;
+  }
+  if (category === "warm" || icon === "coffee") {
     return <CoffeeIllustration className={className} />;
   }
   if (category === "mocktail" || icon === "mocktail") {
@@ -135,9 +138,6 @@ export function DrinkIconView({
   }
   if (category === "wine" || icon === "wine") {
     return <WineIllustration className={className} />;
-  }
-  if (category === "tea" || icon === "tea") {
-    return <TeaIllustration className={className} />;
   }
   if (category === "other" || icon === "shot" || icon === "other") {
     return <ProductIllustration className={className} />;

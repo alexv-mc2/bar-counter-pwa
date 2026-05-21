@@ -3,11 +3,10 @@ export type Locale = "ru" | "de";
 export type DrinkCategory =
   | "cocktail"
   | "mocktail"
-  | "coffee"
+  | "warm"
   | "soft"
   | "beer"
   | "wine"
-  | "tea"
   | "other";
 
 export type ButtonCountPreset = number;
@@ -63,6 +62,8 @@ export interface BarEvent {
   createdAt: string;
   updatedAt: string;
   isActive: boolean;
+  queueEnabled?: boolean;
+  categoriesEnabled?: boolean;
   buttons: DrinkButton[];
 }
 
@@ -81,4 +82,21 @@ export interface TapLogEntry {
 export interface ButtonTemplateSnapshot {
   buttons: DrinkButtonConfig[];
   updatedAt: string;
+}
+
+export const EVENT_CATEGORY_ORDER: DrinkCategory[] = [
+  "cocktail",
+  "mocktail",
+  "beer",
+  "wine",
+  "soft",
+  "warm",
+  "other",
+];
+
+export function normalizeDrinkCategory(value: unknown): DrinkCategory {
+  if (value === "coffee" || value === "tea") return "warm";
+  return EVENT_CATEGORY_ORDER.includes(value as DrinkCategory)
+    ? (value as DrinkCategory)
+    : "other";
 }

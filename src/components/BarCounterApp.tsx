@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type CSSProperties,
   type ReactNode,
@@ -27,13 +28,13 @@ import {
 } from "@/lib/ui/icons";
 import {
   closeActiveEvent,
-  createEvent,
+  createEventWithOptions,
   deleteEvent,
   getActiveEvent,
   getEvent,
   getTapLogsForEvent,
   listEvents,
-  orderDrink,
+  orderDrinkWithQueueMode,
   serveDrink,
   setActiveEvent,
   undoDrink,
@@ -57,10 +58,12 @@ import {
 import type {
   BarEvent,
   ButtonCountPreset,
+  DrinkCategory,
   DrinkButton,
   DrinkTemplate,
   Locale,
 } from "@/lib/types";
+import { EVENT_CATEGORY_ORDER as CATEGORY_ORDER } from "@/lib/types";
 
 type Screen = "home" | "create" | "event" | "history";
 type Messages = ReturnType<typeof t>;
@@ -150,6 +153,22 @@ function rankVisibleSlot(sortedButtons: DrinkButton[], buttonId: string): number
   return sortedButtons
     .filter((button) => button.isVisible !== false)
     .findIndex((button) => button.id === buttonId);
+}
+
+function groupTemplatesByCategory(templates: DrinkTemplate[]) {
+  return CATEGORY_ORDER.map((category) => ({
+    category,
+    items: templates.filter((template) => template.category === category),
+  }));
+}
+
+function firstCategoryWithButtons(buttons: DrinkButton[]): DrinkCategory {
+  for (const category of CATEGORY_ORDER) {
+    if (buttons.some((button) => button.category === category)) {
+      return category;
+    }
+  }
+  return "other";
 }
 
 function RollingBadgerLogo() {
@@ -421,6 +440,7 @@ function SidePanel({
   activeEvent,
   totalCount,
   locale,
+  queueEnabled,
   m,
   openResults,
   openQueue,
@@ -431,6 +451,7 @@ function SidePanel({
   activeEvent: BarEvent;
   totalCount: number;
   locale: Locale;
+  queueEnabled: boolean;
   m: Messages;
   openResults: () => void;
   openQueue: () => void;
@@ -461,7 +482,7 @@ function SidePanel({
         <PanelButton icon={<BarChartIcon />} onClick={openResults}>
           {m.results}
         </PanelButton>
-        <PanelButton icon={<QueueIcon />} onClick={openQueue}>
+        <PanelButton icon={<QueueIcon />} onClick={openQueue} disabled={!queueEnabled}>
           {m.queue}
         </PanelButton>
         <PanelButton icon={<NavHistoryIcon className="h-5 w-5" />} onClick={goHistory}>
@@ -1135,9 +1156,13 @@ export function BarCounterApp() {
   const [events, setEvents] = useState<BarEvent[]>([]);
   const [activeEvent, setActiveEventState] = useState<BarEvent | null>(null);
   const [eventName, setEventName] = useState("");
+  const [createQueueEnabled, setCreateQueueEnabled] = useState(true);
+  const [createCategoriesEnabled, setCreateCategoriesEnabled] = useState(false);
+  const [createSelectedTemplateIds, setCreateSelectedTemplateIds] = useState<string[]>([]);
   const [undoMode, setUndoMode] = useState(false);
   const [serveMode, setServeMode] = useState(false);
   const [eventMessage, setEventMessage] = useState<EventMessage | null>(null);
+  const [selectedEventCategory, setSelectedEventCategory] = useState<DrinkCategory>("cocktail");
   const [editingButton, setEditingButton] = useState<DrinkButton | null>(null);
   const [addingButton, setAddingButton] = useState<DrinkButton | null>(null);
   const [customTemplates, setCustomTemplates] = useState<DrinkTemplate[]>([]);
@@ -1153,7 +1178,10 @@ export function BarCounterApp() {
     useState<ButtonCountPreset>(16);
 
   const m = t(locale);
-  const drinkTemplates = [...DRINK_TEMPLATES, ...customTemplates];
+  const drinkTemplates = useMemo(
+    () => [...DRINK_TEMPLATES, ...customTemplates],
+    [customTemplates],
+  );
 
   const refresh = useCallback(async () => {
     const all = await listEvents();
@@ -1183,6 +1211,36 @@ export function BarCounterApp() {
     setCustomTemplates(getCustomDrinkTemplates());
   }, []);
 
+  useEffect(() => {
+    if (createSelectedTemplateIds.length > 0) return;
+    const initial = drinkTemplates.slice(0, 16).map((template) => template.id);
+    setCreateSelectedTemplateIds(initial);
+  }, [createSelectedTemplateIds.length, drinkTemplates]);
+
+  useEffect(() => {
+    const allowed = new Set(drinkTemplates.map((template) => template.id));
+    const filtered = createSelectedTemplateIds.filter((id) => allowed.has(id));
+    if (filtered.length !== createSelectedTemplateIds.length) {
+      setCreateSelectedTemplateIds(filtered);
+    }
+  }, [createSelectedTemplateIds, drinkTemplates]);
+
+  useEffect(() => {
+    if (!activeEvent?.buttons.length) return;
+    setSelectedEventCategory((current) =>
+      activeEvent.buttons.some((button) => button.category === current)
+        ? current
+        : firstCategoryWithButtons(activeEvent.buttons),
+    );
+  }, [activeEvent]);
+
+  useEffect(() => {
+    if (activeEvent?.queueEnabled === false) {
+      setServeMode(false);
+      setQueueOpen(false);
+    }
+  }, [activeEvent?.queueEnabled]);
+
   const changeLocale = (next: Locale) => {
     setLocale(next);
     setLocaleState(next);
@@ -1205,9 +1263,23 @@ export function BarCounterApp() {
   };
 
   const handleCreate = async () => {
-    const event = await createEvent(eventName, locale);
+    const selectedTemplates = drinkTemplates.filter((template) =>
+      createSelectedTemplateIds.includes(template.id),
+    );
+    if (selectedTemplates.length === 0) return;
+    const event = await createEventWithOptions({
+      name: eventName,
+      locale,
+      selectedTemplates,
+      queueEnabled: createQueueEnabled,
+      categoriesEnabled: createCategoriesEnabled,
+    });
     setActiveEventState(event);
     setEventName("");
+    setCreateQueueEnabled(true);
+    setCreateCategoriesEnabled(false);
+    setCreateSelectedTemplateIds(drinkTemplates.slice(0, 16).map((template) => template.id));
+    setSelectedEventCategory(firstCategoryWithButtons(event.buttons));
     setScreen("event");
     await refresh();
   };
@@ -1242,12 +1314,17 @@ export function BarCounterApp() {
       await applyEventUpdate(updated);
       return;
     }
-    const updated = await orderDrink(activeEvent, buttonId);
+    const updated = await orderDrinkWithQueueMode(
+      activeEvent,
+      buttonId,
+      activeEvent.queueEnabled !== false,
+    );
     await applyEventUpdate(updated);
   };
 
   const handleServe = async (buttonId: string, amount: number) => {
     if (!activeEvent) return;
+    if (activeEvent.queueEnabled === false) return;
     const updated = await serveDrink(activeEvent, buttonId, amount);
     await applyEventUpdate(updated);
     if (getPendingQueue(updated).total === 0) setQueueOpen(false);
@@ -1276,7 +1353,7 @@ export function BarCounterApp() {
 
   const requestFinishEvent = () => {
     if (!activeEvent) return;
-    if (getPendingQueue(activeEvent).total > 0) {
+    if (activeEvent.queueEnabled !== false && getPendingQueue(activeEvent).total > 0) {
       setEventMessage("finishBlockedByQueue");
       return;
     }
@@ -1378,17 +1455,35 @@ export function BarCounterApp() {
     setTemplateOpen(false);
   };
 
+  const handleToggleCreateTemplate = (templateId: string) => {
+    setCreateSelectedTemplateIds((current) => {
+      if (current.includes(templateId)) {
+        return current.filter((id) => id !== templateId);
+      }
+      if (current.length >= MAX_BUTTON_COUNT) return current;
+      return [...current, templateId];
+    });
+  };
+
   const totalCount = activeEvent?.buttons.reduce((s, b) => s + b.count, 0) ?? 0;
   const pendingQueue = activeEvent ? getPendingQueue(activeEvent) : null;
   const pendingQueueTotal = pendingQueue?.total ?? 0;
+  const queueEnabled = activeEvent?.queueEnabled !== false;
+  const categoriesEnabled = activeEvent?.categoriesEnabled === true;
   const heroEvent = screen === "event" ? activeEvent : null;
   const sortedButtons = activeEvent
     ? [...activeEvent.buttons].sort((a, b) => a.slotIndex - b.slotIndex)
     : [];
+  const createGroups = groupTemplatesByCategory(drinkTemplates);
+  const selectedProductsCount = createSelectedTemplateIds.length;
   // Presets and per-button visibility only affect the active grid. Hidden slots
   // stay in event.buttons, so non-zero hidden counts remain in totals, queue,
   // results, CSV export, and future presets.
-  const visibleButtons = visibleButtonsForPreset(sortedButtons, buttonCountPresetState);
+  const presetVisibleButtons = visibleButtonsForPreset(sortedButtons, buttonCountPresetState);
+  const categoryFilteredButtons = categoriesEnabled
+    ? presetVisibleButtons.filter((button) => button.category === selectedEventCategory)
+    : presetVisibleButtons;
+  const visibleButtons = categoryFilteredButtons;
   const addButtonSlot = findAddButtonSlot(sortedButtons, buttonCountPresetState);
   const showAddButton = Boolean(addButtonSlot) && visibleButtons.length < MAX_BUTTON_COUNT;
   const gridItemCount = visibleButtons.length + (showAddButton ? 1 : 0);
@@ -1405,7 +1500,10 @@ export function BarCounterApp() {
   };
   const goHistory = () => setScreen("history");
   const openTemplate = () => setTemplateOpen(true);
-  const openQueue = () => setQueueOpen(true);
+  const openQueue = () => {
+    if (!queueEnabled) return;
+    setQueueOpen(true);
+  };
   const openSettings = () => setSettingsOpen(true);
   const openAddProduct = () => {
     if (!addButtonSlot) return;
@@ -1420,6 +1518,7 @@ export function BarCounterApp() {
     setUndoMode((current) => !current);
   };
   const toggleServeMode = () => {
+    if (!queueEnabled) return;
     setUndoMode(false);
     setServeMode((current) => !current);
   };
@@ -1489,18 +1588,100 @@ export function BarCounterApp() {
       )}
 
       {screen === "create" && (
-        <section className="flex flex-1 overflow-auto px-5 py-8 md:items-center md:justify-center">
-          <div className="w-full max-w-xl rounded-3xl border border-red-100 bg-white/85 p-5 shadow-[0_6px_22px_rgba(120,53,15,0.10)] md:p-7">
+        <section className="flex flex-1 overflow-auto px-5 py-6 md:justify-center">
+          <div className="w-full max-w-5xl rounded-3xl border border-red-100 bg-white/85 p-5 shadow-[0_6px_22px_rgba(120,53,15,0.10)] md:p-7">
             <h2 className="mb-6 text-3xl font-black text-stone-950">{m.createEvent}</h2>
             <label className="mb-2 block text-sm font-black uppercase tracking-wide text-stone-500">
               {m.eventName}
             </label>
             <input
-              className="mb-6 w-full rounded-2xl border-2 border-stone-200 bg-white px-5 py-4 text-2xl font-black text-stone-950 shadow-sm placeholder:text-stone-300 focus:border-red-500 focus:outline-none"
+              className="mb-4 w-full rounded-2xl border-2 border-stone-200 bg-white px-5 py-4 text-2xl font-black text-stone-950 shadow-sm placeholder:text-stone-300 focus:border-red-500 focus:outline-none"
               value={eventName}
               onChange={(e) => setEventName(e.target.value)}
               placeholder={locale === "de" ? "Freitag Bar" : "Пятничный бар"}
             />
+            <div className="mb-5 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setCreateQueueEnabled((current) => !current)}
+                className={`min-h-12 rounded-2xl border-2 px-4 py-3 text-left font-black ${
+                  createQueueEnabled
+                    ? "border-red-700 bg-red-50 text-red-800"
+                    : "border-stone-300 bg-white text-stone-600"
+                }`}
+              >
+                <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-md border-2 border-current text-sm leading-none">
+                  {createQueueEnabled ? "✓" : ""}
+                </span>
+                {m.queueEnabledLabel}
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreateCategoriesEnabled((current) => !current)}
+                className={`min-h-12 rounded-2xl border-2 px-4 py-3 text-left font-black ${
+                  createCategoriesEnabled
+                    ? "border-red-700 bg-red-50 text-red-800"
+                    : "border-stone-300 bg-white text-stone-600"
+                }`}
+              >
+                <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-md border-2 border-current text-sm leading-none">
+                  {createCategoriesEnabled ? "✓" : ""}
+                </span>
+                {m.categoriesEnabledLabel}
+              </button>
+            </div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-sm font-black uppercase tracking-wide text-stone-500">
+                {m.menuSetupTitle}
+              </p>
+              <p className="text-sm font-black text-stone-700">
+                {m.selectedProducts}: {selectedProductsCount}/{MAX_BUTTON_COUNT}
+              </p>
+            </div>
+            <div className="mb-6 max-h-[48vh] space-y-4 overflow-y-auto rounded-2xl border border-stone-200 bg-white/70 p-4">
+              {createGroups.map((group) => (
+                <div key={group.category} className="rounded-2xl border border-stone-200/80 bg-white/80 p-3">
+                  <h3 className="mb-2 text-base font-black text-stone-900">
+                    {m.categories[group.category]}
+                  </h3>
+                  {group.items.length === 0 ? (
+                    <p className="text-sm font-semibold text-stone-400">
+                      {m.noProductsInCategory}
+                    </p>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {group.items.map((template) => {
+                        const checked = createSelectedTemplateIds.includes(template.id);
+                        const disabled = !checked && selectedProductsCount >= MAX_BUTTON_COUNT;
+                        return (
+                          <button
+                            key={template.id}
+                            type="button"
+                            onClick={() => handleToggleCreateTemplate(template.id)}
+                            disabled={disabled}
+                            className={`min-h-12 rounded-xl border-2 px-3 py-2 text-left text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                              checked
+                                ? "border-red-700 bg-red-50 text-red-800"
+                                : "border-stone-300 bg-white text-stone-700 active:bg-stone-100"
+                            }`}
+                          >
+                            <span className="mr-2 inline-flex h-4 w-4 items-center justify-center rounded border border-current text-[0.7rem] leading-none">
+                              {checked ? "✓" : ""}
+                            </span>
+                            {template.labels[locale]}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {selectedProductsCount === 0 && (
+              <p className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm font-black text-red-700">
+                {m.selectAtLeastOneProduct}
+              </p>
+            )}
             <div className="flex gap-3">
               <button
                 type="button"
@@ -1511,8 +1692,9 @@ export function BarCounterApp() {
               </button>
               <button
                 type="button"
+                disabled={selectedProductsCount === 0}
                 onClick={() => void handleCreate()}
-                className="min-h-14 flex-1 rounded-2xl bg-red-700 px-4 py-3 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800"
+                className="min-h-14 flex-1 rounded-2xl bg-red-700 px-4 py-3 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {m.startEvent}
               </button>
@@ -1631,18 +1813,26 @@ export function BarCounterApp() {
                   icon={<QueueIcon />}
                   variant="outline"
                   emphasis="featured"
-                  className="border-red-300 bg-red-50/80 text-red-800"
+                  disabled={!queueEnabled}
+                  className={
+                    queueEnabled
+                      ? "border-red-300 bg-red-50/80 text-red-800"
+                      : "border-stone-300 bg-stone-100 text-stone-400"
+                  }
                   onClick={openQueue}
                 >
                   {m.queue}
-                  {pendingQueueTotal > 0 ? ` ${pendingQueueTotal}` : ""}
+                  {queueEnabled && pendingQueueTotal > 0 ? ` ${pendingQueueTotal}` : ""}
                 </IconButton>
                 <IconButton
                   icon={<QueueIcon />}
                   variant={serveMode ? "solid" : "outline"}
                   emphasis="featured"
+                  disabled={!queueEnabled}
                   className={
-                    serveMode
+                    !queueEnabled
+                      ? "border-stone-300 bg-stone-100 text-stone-400"
+                      : serveMode
                       ? "ring-4 ring-red-200 ring-offset-1"
                       : "border-red-300 bg-white text-red-800"
                   }
@@ -1679,10 +1869,40 @@ export function BarCounterApp() {
                   {m[eventMessage]}
                 </p>
               )}
+              {!queueEnabled && (
+                <p className="w-full rounded-xl bg-stone-100 px-3 py-2 text-center text-xs font-black text-stone-500 sm:text-sm">
+                  {m.queueDisabledHint}
+                </p>
+              )}
             </div>
 
             <div className="flex min-h-0 flex-1 gap-3 overflow-hidden px-3 py-2 sm:px-4 lg:px-5">
               <div className="min-w-0 flex-1 overflow-hidden">
+                {categoriesEnabled && (
+                  <div className="mb-2 flex flex-wrap gap-2">
+                    {CATEGORY_ORDER.map((category) => {
+                      const selected = selectedEventCategory === category;
+                      const count = presetVisibleButtons.filter(
+                        (button) => button.category === category,
+                      ).length;
+                      return (
+                        <button
+                          key={category}
+                          type="button"
+                          data-category-tab={category}
+                          onClick={() => setSelectedEventCategory(category)}
+                          className={`min-h-10 rounded-xl border-2 px-3 py-1.5 text-xs font-black sm:text-sm ${
+                            selected
+                              ? "border-red-700 bg-red-50 text-red-800"
+                              : "border-stone-300 bg-white text-stone-600"
+                          }`}
+                        >
+                          {m.categories[category]} {count > 0 ? `(${count})` : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 <div
                   className="rbbc-product-grid h-full min-h-0"
                   style={productGridStyle}
@@ -1708,11 +1928,17 @@ export function BarCounterApp() {
                     />
                   )}
                 </div>
+                {categoriesEnabled && visibleButtons.length === 0 && (
+                  <div className="mt-2 rounded-2xl border border-stone-200 bg-white/80 px-4 py-6 text-center text-sm font-bold text-stone-400">
+                    {m.noProductsInCategory}
+                  </div>
+                )}
               </div>
               <SidePanel
                 activeEvent={activeEvent}
                 totalCount={totalCount}
                 locale={locale}
+                queueEnabled={queueEnabled}
                 m={m}
                 openResults={openActiveResults}
                 openQueue={openQueue}
@@ -1766,7 +1992,7 @@ export function BarCounterApp() {
         />
       )}
 
-      {queueOpen && activeEvent && (
+      {queueOpen && activeEvent && queueEnabled && (
         <QueueModal
           event={activeEvent}
           m={m}

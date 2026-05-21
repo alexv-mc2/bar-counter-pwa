@@ -1,11 +1,11 @@
 import type {
   ButtonCountPreset,
-  DrinkCategory,
   DrinkColor,
   DrinkIcon,
   DrinkTemplate,
   Locale,
 } from "@/lib/types";
+import { EVENT_CATEGORY_ORDER, normalizeDrinkCategory } from "@/lib/types";
 
 const LOCALE_KEY = "rbbc.locale";
 const LAST_EVENT_KEY = "rbbc.lastActiveEventId";
@@ -14,16 +14,6 @@ const PIN_HASH_KEY = "rbbc.pinHash";
 const CUSTOM_DRINK_TEMPLATES_KEY = "rbbc.customDrinkTemplates";
 const BUTTON_COUNT_MIN = 1;
 const BUTTON_COUNT_MAX = 16;
-const DRINK_CATEGORIES: DrinkCategory[] = [
-  "cocktail",
-  "mocktail",
-  "coffee",
-  "soft",
-  "beer",
-  "wine",
-  "tea",
-  "other",
-];
 const DRINK_COLORS: DrinkColor[] = ["amber", "blue", "green", "red", "purple", "slate"];
 const DRINK_ICONS: DrinkIcon[] = [
   "cocktail",
@@ -71,7 +61,7 @@ function isDrinkTemplate(value: unknown): value is DrinkTemplate {
   const item = value as Partial<DrinkTemplate>;
   return (
     typeof item.id === "string" &&
-    DRINK_CATEGORIES.includes(item.category as DrinkCategory) &&
+    EVENT_CATEGORY_ORDER.includes(normalizeDrinkCategory(item.category)) &&
     DRINK_ICONS.includes(item.icon as DrinkIcon) &&
     DRINK_COLORS.includes(item.color as DrinkColor) &&
     typeof item.labels?.ru === "string" &&
@@ -83,7 +73,11 @@ export function getCustomDrinkTemplates(): DrinkTemplate[] {
   if (typeof window === "undefined") return [];
   try {
     const parsed = JSON.parse(localStorage.getItem(CUSTOM_DRINK_TEMPLATES_KEY) ?? "[]");
-    return Array.isArray(parsed) ? parsed.filter(isDrinkTemplate) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isDrinkTemplate).map((item) => ({
+      ...item,
+      category: normalizeDrinkCategory(item.category),
+    }));
   } catch {
     return [];
   }
