@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { DrinkIconView } from "@/lib/ui/icons";
 import { COLOR_CLASSES } from "@/lib/ui/colors";
 import type { DrinkButton } from "@/lib/types";
@@ -35,14 +35,147 @@ const SCALE_CLASSES: Record<
   },
 };
 
-function resetLongPressSoon(
-  longPressRef: React.MutableRefObject<boolean>,
-  suppressClickRef: React.MutableRefObject<boolean>,
-) {
-  window.setTimeout(() => {
-    longPressRef.current = false;
-    suppressClickRef.current = false;
-  }, 250);
+function useReliableLongPress(onLongPress: () => void) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointerIdRef = useRef<number | null>(null);
+  const targetRef = useRef<HTMLButtonElement | null>(null);
+  const longPressFiredRef = useRef(false);
+  const suppressNextClickRef = useRef(false);
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const clearResetTimer = useCallback(() => {
+    if (resetTimerRef.current) {
+      clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = null;
+    }
+  }, []);
+
+  const releasePointerCapture = useCallback(() => {
+    const target = targetRef.current;
+    const pointerId = pointerIdRef.current;
+    if (!target || pointerId === null) return;
+    try {
+      if (target.hasPointerCapture(pointerId)) {
+        target.releasePointerCapture(pointerId);
+      }
+    } catch {
+      // Some mobile browsers can drop capture while opening a modal.
+    }
+  }, []);
+
+  const resetState = useCallback(() => {
+    clearTimer();
+    clearResetTimer();
+    releasePointerCapture();
+    pointerIdRef.current = null;
+    targetRef.current = null;
+    longPressFiredRef.current = false;
+    suppressNextClickRef.current = false;
+  }, [clearResetTimer, clearTimer, releasePointerCapture]);
+
+  const scheduleSuppressionReset = useCallback(() => {
+    clearResetTimer();
+    resetTimerRef.current = setTimeout(() => {
+      longPressFiredRef.current = false;
+      suppressNextClickRef.current = false;
+      pointerIdRef.current = null;
+      targetRef.current = null;
+      resetTimerRef.current = null;
+    }, 700);
+  }, [clearResetTimer]);
+
+  const finishPress = useCallback(
+    (keepClickSuppression: boolean) => {
+      clearTimer();
+      releasePointerCapture();
+      pointerIdRef.current = null;
+      targetRef.current = null;
+
+      if (keepClickSuppression) {
+        scheduleSuppressionReset();
+        return;
+      }
+
+      clearResetTimer();
+      longPressFiredRef.current = false;
+      suppressNextClickRef.current = false;
+    },
+    [clearResetTimer, clearTimer, releasePointerCapture, scheduleSuppressionReset],
+  );
+
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      if (event.pointerType !== "mouse" && !event.isPrimary) return;
+
+      resetState();
+      pointerIdRef.current = event.pointerId;
+      targetRef.current = event.currentTarget;
+
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture is best-effort on older tablet browsers.
+      }
+
+      timerRef.current = setTimeout(() => {
+        longPressFiredRef.current = true;
+        suppressNextClickRef.current = true;
+        releasePointerCapture();
+        onLongPress();
+        scheduleSuppressionReset();
+      }, LONG_PRESS_MS);
+    },
+    [onLongPress, releasePointerCapture, resetState, scheduleSuppressionReset],
+  );
+
+  const handlePointerEnd = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (pointerIdRef.current !== null && event.pointerId !== pointerIdRef.current) {
+        return;
+      }
+      finishPress(longPressFiredRef.current);
+    },
+    [finishPress],
+  );
+
+  const handleClick = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      if (longPressFiredRef.current || suppressNextClickRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        resetState();
+        return false;
+      }
+
+      resetState();
+      return true;
+    },
+    [resetState],
+  );
+
+  useEffect(() => resetState, [resetState]);
+
+  return {
+    handleClick,
+    pointerHandlers: {
+      onPointerDown: handlePointerDown,
+      onPointerUp: handlePointerEnd,
+      onPointerCancel: handlePointerEnd,
+      onLostPointerCapture: handlePointerEnd,
+      onBlur: () => finishPress(longPressFiredRef.current),
+      onContextMenu: (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.preventDefault();
+      },
+    },
+  };
 }
 
 export function DrinkGridButton({
@@ -60,59 +193,24 @@ export function DrinkGridButton({
   onTap: (buttonId: string) => void;
   onLongPress: (button: DrinkButton) => void;
 }) {
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressRef = useRef(false);
-  const suppressClickRef = useRef(false);
   const palette = COLOR_CLASSES[button.color];
   const scale = SCALE_CLASSES[cardScale];
-
-  const clearTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
-
-  const startPress = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (e.button !== 0) return;
-    longPressRef.current = false;
-    suppressClickRef.current = false;
-    clearTimer();
-    timerRef.current = setTimeout(() => {
-      longPressRef.current = true;
-      suppressClickRef.current = true;
-      onLongPress(button);
-      const resetAfterRelease = () => resetLongPressSoon(longPressRef, suppressClickRef);
-      window.addEventListener("pointerup", resetAfterRelease, { once: true, capture: true });
-      window.addEventListener("mouseup", resetAfterRelease, { once: true, capture: true });
-    }, LONG_PRESS_MS);
-  };
-
-  const endPress = () => {
-    clearTimer();
-    if (longPressRef.current) {
-      resetLongPressSoon(longPressRef, suppressClickRef);
-    }
-  };
+  const { handleClick: handleLongPressClick, pointerHandlers } = useReliableLongPress(
+    () => onLongPress(button),
+  );
 
   const handleClick = () => {
-    if (longPressRef.current || suppressClickRef.current) {
-      longPressRef.current = false;
-      suppressClickRef.current = false;
-      return;
-    }
     onTap(button.id);
   };
 
   return (
     <button
       type="button"
-      onPointerDown={startPress}
-      onPointerUp={endPress}
-      onPointerLeave={clearTimer}
-      onPointerCancel={clearTimer}
-      onClick={handleClick}
-      onContextMenu={(e) => e.preventDefault()}
+      {...pointerHandlers}
+      onClick={(event) => {
+        if (!handleLongPressClick(event)) return;
+        handleClick();
+      }}
       className={[
         "rbbc-product-card group relative flex h-full min-h-0 select-none flex-col items-center justify-center gap-1 overflow-hidden rounded-[18px] border border-red-200/70 bg-white/90 px-2 py-1.5 text-center sm:px-3 sm:py-2",
         "shadow-[0_3px_12px_rgba(120,53,15,0.10)] transition-all active:scale-[0.985] active:shadow-sm",
@@ -167,55 +265,15 @@ export function AddProductButton({
   hint: string;
   onLongPress: () => void;
 }) {
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressRef = useRef(false);
-  const suppressClickRef = useRef(false);
   const scale = SCALE_CLASSES[cardScale];
-
-  const clearTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
-
-  const startPress = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (e.button !== 0) return;
-    longPressRef.current = false;
-    suppressClickRef.current = false;
-    clearTimer();
-    timerRef.current = setTimeout(() => {
-      longPressRef.current = true;
-      suppressClickRef.current = true;
-      onLongPress();
-      const resetAfterRelease = () => resetLongPressSoon(longPressRef, suppressClickRef);
-      window.addEventListener("pointerup", resetAfterRelease, { once: true, capture: true });
-      window.addEventListener("mouseup", resetAfterRelease, { once: true, capture: true });
-    }, LONG_PRESS_MS);
-  };
-
-  const handleClick = () => {
-    if (longPressRef.current || suppressClickRef.current) {
-      longPressRef.current = false;
-      suppressClickRef.current = false;
-    }
-  };
+  const { handleClick, pointerHandlers } = useReliableLongPress(onLongPress);
 
   return (
     <button
       type="button"
       data-add-product-button="true"
-      onPointerDown={startPress}
-      onPointerUp={() => {
-        clearTimer();
-        if (longPressRef.current) {
-          resetLongPressSoon(longPressRef, suppressClickRef);
-        }
-      }}
-      onPointerLeave={clearTimer}
-      onPointerCancel={clearTimer}
+      {...pointerHandlers}
       onClick={handleClick}
-      onContextMenu={(e) => e.preventDefault()}
       className="relative flex h-full min-h-0 select-none flex-col items-center justify-center gap-1 overflow-hidden rounded-[18px] border-2 border-dashed border-stone-300/80 bg-white/45 px-2 py-1.5 text-center text-stone-400 shadow-[0_3px_10px_rgba(120,53,15,0.05)] active:scale-[0.985] active:bg-stone-50 sm:px-3 sm:py-2"
       aria-label={label}
     >

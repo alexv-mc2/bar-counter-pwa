@@ -35,6 +35,7 @@ import {
   getTapLogsForEvent,
   listEvents,
   orderDrinkWithQueueMode,
+  saveEvent,
   serveDrink,
   setActiveEvent,
   undoDrink,
@@ -508,6 +509,48 @@ function SidePanel({
   );
 }
 
+function CategorySideMenu({
+  categories,
+  counts,
+  selectedCategory,
+  onSelect,
+  m,
+}: {
+  categories: DrinkCategory[];
+  counts: Record<DrinkCategory, number>;
+  selectedCategory: DrinkCategory;
+  onSelect: (category: DrinkCategory) => void;
+  m: Messages;
+}) {
+  return (
+    <aside className="w-[17rem] shrink-0 overflow-hidden rounded-2xl border border-red-200/70 bg-white/85 p-2 shadow-[0_4px_18px_rgba(120,53,15,0.10)]">
+      <div className="flex h-full flex-col gap-2">
+        {categories.map((category) => {
+          const selected = selectedCategory === category;
+          return (
+            <button
+              key={category}
+              type="button"
+              data-category-side={category}
+              onClick={() => onSelect(category)}
+              className={`min-h-14 rounded-2xl border-2 px-3 py-2 text-left text-base font-black transition ${
+                selected
+                  ? "border-red-700 bg-red-700 text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)]"
+                  : "border-stone-300 bg-white text-stone-700 active:bg-stone-100"
+              }`}
+            >
+              <span className="block truncate">{m.categories[category]}</span>
+              <span className={`block text-sm ${selected ? "text-red-100" : "text-stone-500"}`}>
+                {counts[category]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}
+
 function PanelButton({
   children,
   icon,
@@ -707,26 +750,29 @@ function ButtonTemplateModal({
 function SettingsModal({
   locale,
   m,
+  activeEvent,
   pinEnabled,
-  newEventQueueDefault,
-  newEventCategoriesDefault,
+  initialQueueEnabled,
+  initialCategoriesEnabled,
   onLocaleChange,
-  onNewEventQueueDefaultChange,
-  onNewEventCategoriesDefaultChange,
+  onApplyEventSettings,
   onPinEnabledChange,
   onClose,
 }: {
   locale: Locale;
   m: Messages;
+  activeEvent: BarEvent | null;
   pinEnabled: boolean;
-  newEventQueueDefault: boolean;
-  newEventCategoriesDefault: boolean;
+  initialQueueEnabled: boolean;
+  initialCategoriesEnabled: boolean;
   onLocaleChange: (locale: Locale) => void;
-  onNewEventQueueDefaultChange: (enabled: boolean) => void;
-  onNewEventCategoriesDefaultChange: (enabled: boolean) => void;
+  onApplyEventSettings: (queueEnabled: boolean, categoriesEnabled: boolean) => Promise<void>;
   onPinEnabledChange: (enabled: boolean) => void;
   onClose: () => void;
 }) {
+  const [queueEnabledDraft, setQueueEnabledDraft] = useState(initialQueueEnabled);
+  const [categoriesEnabledDraft, setCategoriesEnabledDraft] = useState(initialCategoriesEnabled);
+  const [saving, setSaving] = useState(false);
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [repeatPin, setRepeatPin] = useState("");
@@ -771,161 +817,194 @@ function SettingsModal({
     setMessage({ type: "success", text: m.pinDisabled });
   };
 
+  const handleSaveEventSettings = async () => {
+    setSaving(true);
+    await onApplyEventSettings(queueEnabledDraft, categoriesEnabledDraft);
+    setSaving(false);
+    onClose();
+  };
+
+  const settingsTitle = activeEvent ? m.currentEventSettingsTitle : m.newEventSettingsTitle;
+  const settingsHint = activeEvent ? m.currentEventSettingsHint : m.newEventSettingsHint;
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-950/55 p-4 sm:items-center">
       <div
-        className="w-full max-w-xl rounded-3xl border border-red-100 bg-[#fffdfa] p-6 shadow-2xl"
+        className="flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-red-100 bg-[#fffdfa] shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-title"
       >
-        <h2 id="settings-title" className="text-3xl font-black text-stone-950">
-          {m.settings}
-        </h2>
-
-        <div className="mt-6 rounded-2xl border border-red-100 bg-white/80 p-4">
-          <p className="mb-3 text-sm font-black uppercase tracking-wide text-stone-500">
-            {m.language}
-          </p>
-          <LanguageSwitcher locale={locale} onChange={onLocaleChange} />
+        <div className="flex items-center justify-between border-b border-red-100 px-6 py-4">
+          <h2 id="settings-title" className="text-3xl font-black text-stone-950">
+            {m.settings}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border-2 border-stone-300 bg-white px-3 py-1.5 text-sm font-black text-stone-700 active:bg-stone-100"
+          >
+            {m.close}
+          </button>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-red-100 bg-white/80 p-4">
-          <p className="mb-3 text-sm font-black uppercase tracking-wide text-stone-500">
-            {m.menuSetupTitle}
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => onNewEventQueueDefaultChange(!newEventQueueDefault)}
-              className={`min-h-12 rounded-2xl border-2 px-4 py-3 text-left font-black ${
-                newEventQueueDefault
-                  ? "border-red-700 bg-red-50 text-red-800"
-                  : "border-stone-300 bg-white text-stone-600"
-              }`}
-            >
-              <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-md border-2 border-current text-sm leading-none">
-                {newEventQueueDefault ? "✓" : ""}
-              </span>
-              {m.queueEnabledLabel}
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                onNewEventCategoriesDefaultChange(!newEventCategoriesDefault)
-              }
-              className={`min-h-12 rounded-2xl border-2 px-4 py-3 text-left font-black ${
-                newEventCategoriesDefault
-                  ? "border-red-700 bg-red-50 text-red-800"
-                  : "border-stone-300 bg-white text-stone-600"
-              }`}
-            >
-              <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-md border-2 border-current text-sm leading-none">
-                {newEventCategoriesDefault ? "✓" : ""}
-              </span>
-              {m.categoriesEnabledLabel}
-            </button>
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
+          <div className="rounded-2xl border border-red-100 bg-white/80 p-4">
+            <p className="mb-3 text-sm font-black uppercase tracking-wide text-stone-500">
+              {m.language}
+            </p>
+            <LanguageSwitcher locale={locale} onChange={onLocaleChange} />
           </div>
-        </div>
 
-        <div className="mt-4 rounded-2xl border border-red-100 bg-white/80 p-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="rounded-2xl border border-red-100 bg-white/80 p-4">
             <p className="text-sm font-black uppercase tracking-wide text-stone-500">
-              {m.pinCode}
+              {settingsTitle}
             </p>
-            <span
-              className={`rounded-lg px-3 py-1 text-xs font-black uppercase ${
-                pinEnabled ? "bg-red-700 text-white" : "bg-stone-200 text-stone-600"
-              }`}
-            >
-              {pinEnabled ? m.changePin : m.setPin}
-            </span>
-          </div>
-
-          {pinEnabled && (
-            <label className="mt-4 block">
-              <span className="mb-1 block text-sm font-black text-stone-600">
-                {m.enterPin}
-              </span>
-              <input
-                type="password"
-                inputMode="numeric"
-                maxLength={4}
-                value={currentPin}
-                onChange={(event) => setCurrentPin(event.target.value.replace(/\D/g, ""))}
-                className="h-14 w-full rounded-2xl border-2 border-stone-200 bg-white px-5 text-2xl font-black tracking-[0.3em] text-stone-950 focus:border-red-600 focus:outline-none"
-              />
-            </label>
-          )}
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="mb-1 block text-sm font-black text-stone-600">
-                {m.newPin}
-              </span>
-              <input
-                type="password"
-                inputMode="numeric"
-                maxLength={4}
-                value={newPin}
-                onChange={(event) => setNewPin(event.target.value.replace(/\D/g, ""))}
-                className="h-14 w-full rounded-2xl border-2 border-stone-200 bg-white px-5 text-2xl font-black tracking-[0.3em] text-stone-950 focus:border-red-600 focus:outline-none"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-sm font-black text-stone-600">
-                {m.repeatPin}
-              </span>
-              <input
-                type="password"
-                inputMode="numeric"
-                maxLength={4}
-                value={repeatPin}
-                onChange={(event) => setRepeatPin(event.target.value.replace(/\D/g, ""))}
-                className="h-14 w-full rounded-2xl border-2 border-stone-200 bg-white px-5 text-2xl font-black tracking-[0.3em] text-stone-950 focus:border-red-600 focus:outline-none"
-              />
-            </label>
-          </div>
-
-          {message && (
-            <p
-              className={`mt-3 rounded-xl px-4 py-3 text-sm font-black ${
-                message.type === "error"
-                  ? "bg-red-50 text-red-700"
-                  : "bg-emerald-50 text-emerald-700"
-              }`}
-            >
-              {message.text}
-            </p>
-          )}
-
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={handleSavePin}
-              className="min-h-14 flex-1 rounded-2xl bg-red-700 px-4 py-3 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800"
-            >
-              {m.save}
-            </button>
-            {pinEnabled && (
+            <p className="mt-2 text-sm font-semibold text-stone-600">{settingsHint}</p>
+            {activeEvent && (
+              <p className="mt-2 text-sm font-black text-stone-900">{activeEvent.name}</p>
+            )}
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={handleResetPin}
-                className="min-h-14 flex-1 rounded-2xl border-2 border-stone-300 bg-white px-4 py-3 font-black text-stone-700 active:bg-stone-100"
+                onClick={() => setQueueEnabledDraft((current) => !current)}
+                className={`min-h-12 rounded-2xl border-2 px-4 py-3 text-left font-black ${
+                  queueEnabledDraft
+                    ? "border-red-700 bg-red-50 text-red-800"
+                    : "border-stone-300 bg-white text-stone-600"
+                }`}
               >
-                {m.resetPin}
+                <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-md border-2 border-current text-sm leading-none">
+                  {queueEnabledDraft ? "✓" : ""}
+                </span>
+                {m.queueEnabledLabel}
               </button>
+              <button
+                type="button"
+                onClick={() => setCategoriesEnabledDraft((current) => !current)}
+                className={`min-h-12 rounded-2xl border-2 px-4 py-3 text-left font-black ${
+                  categoriesEnabledDraft
+                    ? "border-red-700 bg-red-50 text-red-800"
+                    : "border-stone-300 bg-white text-stone-600"
+                }`}
+              >
+                <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-md border-2 border-current text-sm leading-none">
+                  {categoriesEnabledDraft ? "✓" : ""}
+                </span>
+                {m.categoriesEnabledLabel}
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-red-100 bg-white/80 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-black uppercase tracking-wide text-stone-500">
+                {m.pinCode}
+              </p>
+              <span
+                className={`rounded-lg px-3 py-1 text-xs font-black uppercase ${
+                  pinEnabled ? "bg-red-700 text-white" : "bg-stone-200 text-stone-600"
+                }`}
+              >
+                {pinEnabled ? m.changePin : m.setPin}
+              </span>
+            </div>
+
+            {pinEnabled && (
+              <label className="mt-4 block">
+                <span className="mb-1 block text-sm font-black text-stone-600">
+                  {m.enterPin}
+                </span>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={currentPin}
+                  onChange={(event) => setCurrentPin(event.target.value.replace(/\D/g, ""))}
+                  className="h-14 w-full rounded-2xl border-2 border-stone-200 bg-white px-5 text-2xl font-black tracking-[0.3em] text-stone-950 focus:border-red-600 focus:outline-none"
+                />
+              </label>
             )}
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-sm font-black text-stone-600">
+                  {m.newPin}
+                </span>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={newPin}
+                  onChange={(event) => setNewPin(event.target.value.replace(/\D/g, ""))}
+                  className="h-14 w-full rounded-2xl border-2 border-stone-200 bg-white px-5 text-2xl font-black tracking-[0.3em] text-stone-950 focus:border-red-600 focus:outline-none"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm font-black text-stone-600">
+                  {m.repeatPin}
+                </span>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={repeatPin}
+                  onChange={(event) => setRepeatPin(event.target.value.replace(/\D/g, ""))}
+                  className="h-14 w-full rounded-2xl border-2 border-stone-200 bg-white px-5 text-2xl font-black tracking-[0.3em] text-stone-950 focus:border-red-600 focus:outline-none"
+                />
+              </label>
+            </div>
+
+            {message && (
+              <p
+                className={`mt-3 rounded-xl px-4 py-3 text-sm font-black ${
+                  message.type === "error"
+                    ? "bg-red-50 text-red-700"
+                    : "bg-emerald-50 text-emerald-700"
+                }`}
+              >
+                {message.text}
+              </p>
+            )}
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleSavePin}
+                className="min-h-14 flex-1 rounded-2xl bg-red-700 px-4 py-3 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800"
+              >
+                {m.save}
+              </button>
+              {pinEnabled && (
+                <button
+                  type="button"
+                  onClick={handleResetPin}
+                  className="min-h-14 flex-1 rounded-2xl border-2 border-stone-300 bg-white px-4 py-3 font-black text-stone-700 active:bg-stone-100"
+                >
+                  {m.resetPin}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-5 min-h-14 w-full rounded-2xl border-2 border-stone-300 bg-white px-4 py-3 font-black text-stone-700 active:bg-stone-100"
-        >
-          {m.close}
-        </button>
+        <div className="flex shrink-0 gap-3 border-t border-red-100 px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-14 flex-1 rounded-2xl border-2 border-stone-300 bg-white px-4 py-3 font-black text-stone-700 active:bg-stone-100"
+          >
+            {m.close}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleSaveEventSettings()}
+            disabled={saving}
+            className="min-h-14 flex-1 rounded-2xl bg-red-700 px-4 py-3 font-black text-white shadow-[0_8px_18px_rgba(185,28,28,0.24)] active:bg-red-800 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {m.save}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1273,15 +1352,6 @@ export function BarCounterApp() {
   }, [createSelectedTemplateIds, drinkTemplates]);
 
   useEffect(() => {
-    if (!activeEvent?.buttons.length) return;
-    setSelectedEventCategory((current) =>
-      activeEvent.buttons.some((button) => button.category === current)
-        ? current
-        : firstCategoryWithButtons(activeEvent.buttons),
-    );
-  }, [activeEvent]);
-
-  useEffect(() => {
     if (activeEvent?.queueEnabled === false) {
       setServeMode(false);
       setQueueOpen(false);
@@ -1301,6 +1371,22 @@ export function BarCounterApp() {
   const setNewEventCategoriesDefault = (enabled: boolean) => {
     setNewEventCategoriesDefaultState(enabled);
     setNewEventCategoriesDefaultPref(enabled);
+  };
+
+  const applyEventSettings = async (
+    queueEnabled: boolean,
+    categoriesEnabled: boolean,
+  ) => {
+    setNewEventQueueDefault(queueEnabled);
+    setNewEventCategoriesDefault(categoriesEnabled);
+    if (!activeEvent) return;
+    const updated = await saveEvent({
+      ...activeEvent,
+      queueEnabled,
+      categoriesEnabled,
+    });
+    setActiveEventState(updated);
+    await refresh();
   };
 
   const requestProtectedAction = (action: () => void | Promise<void>) => {
@@ -1535,8 +1621,35 @@ export function BarCounterApp() {
   // stay in event.buttons, so non-zero hidden counts remain in totals, queue,
   // results, CSV export, and future presets.
   const presetVisibleButtons = visibleButtonsForPreset(sortedButtons, buttonCountPresetState);
+  const categoryCounts = CATEGORY_ORDER.reduce<Record<DrinkCategory, number>>(
+    (acc, category) => {
+      acc[category] = presetVisibleButtons.filter(
+        (button) => button.category === category,
+      ).length;
+      return acc;
+    },
+    {
+      cocktail: 0,
+      mocktail: 0,
+      beer: 0,
+      wine: 0,
+      soft: 0,
+      warm: 0,
+      other: 0,
+    },
+  );
+  const activeCategories = categoriesEnabled
+    ? CATEGORY_ORDER.filter((category) => categoryCounts[category] > 0)
+    : [];
+  const activeCategoriesKey = activeCategories.join("|");
+  const firstActiveCategory = activeCategories[0];
+  const effectiveSelectedCategory = activeCategories.includes(selectedEventCategory)
+    ? selectedEventCategory
+    : (activeCategories[0] ?? "cocktail");
   const categoryFilteredButtons = categoriesEnabled
-    ? presetVisibleButtons.filter((button) => button.category === selectedEventCategory)
+    ? presetVisibleButtons.filter(
+        (button) => button.category === effectiveSelectedCategory,
+      )
     : presetVisibleButtons;
   const visibleButtons = categoryFilteredButtons;
   const addButtonSlot = findAddButtonSlot(sortedButtons, buttonCountPresetState);
@@ -1577,6 +1690,18 @@ export function BarCounterApp() {
     setUndoMode(false);
     setServeMode((current) => !current);
   };
+
+  useEffect(() => {
+    if (!categoriesEnabled || !firstActiveCategory) return;
+    if (!activeCategoriesKey.split("|").includes(selectedEventCategory)) {
+      setSelectedEventCategory(firstActiveCategory);
+    }
+  }, [
+    categoriesEnabled,
+    activeCategoriesKey,
+    firstActiveCategory,
+    selectedEventCategory,
+  ]);
 
   return (
     <main className="rbbc-app-shell flex flex-col overflow-hidden bg-[#FAF8F4] text-stone-950">
@@ -1907,31 +2032,6 @@ export function BarCounterApp() {
 
             <div className="flex min-h-0 flex-1 gap-3 overflow-hidden px-3 py-2 sm:px-4 lg:px-5">
               <div className="min-w-0 flex-1 overflow-hidden">
-                {categoriesEnabled && (
-                  <div className="mb-2 flex flex-wrap gap-2">
-                    {CATEGORY_ORDER.map((category) => {
-                      const selected = selectedEventCategory === category;
-                      const count = presetVisibleButtons.filter(
-                        (button) => button.category === category,
-                      ).length;
-                      return (
-                        <button
-                          key={category}
-                          type="button"
-                          data-category-tab={category}
-                          onClick={() => setSelectedEventCategory(category)}
-                          className={`min-h-10 rounded-xl border-2 px-3 py-1.5 text-xs font-black sm:text-sm ${
-                            selected
-                              ? "border-red-700 bg-red-50 text-red-800"
-                              : "border-stone-300 bg-white text-stone-600"
-                          }`}
-                        >
-                          {m.categories[category]} {count > 0 ? `(${count})` : ""}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
                 <div
                   className="rbbc-product-grid h-full min-h-0"
                   style={productGridStyle}
@@ -1963,18 +2063,28 @@ export function BarCounterApp() {
                   </div>
                 )}
               </div>
-              <SidePanel
-                activeEvent={activeEvent}
-                totalCount={totalCount}
-                locale={locale}
-                queueEnabled={queueEnabled}
-                m={m}
-                openResults={openActiveResults}
-                openQueue={openQueue}
-                goHistory={goHistory}
-                openTemplate={openTemplate}
-                openSettings={openSettings}
-              />
+              {categoriesEnabled ? (
+                <CategorySideMenu
+                  categories={activeCategories}
+                  counts={categoryCounts}
+                  selectedCategory={effectiveSelectedCategory}
+                  onSelect={setSelectedEventCategory}
+                  m={m}
+                />
+              ) : (
+                <SidePanel
+                  activeEvent={activeEvent}
+                  totalCount={totalCount}
+                  locale={locale}
+                  queueEnabled={queueEnabled}
+                  m={m}
+                  openResults={openActiveResults}
+                  openQueue={openQueue}
+                  goHistory={goHistory}
+                  openTemplate={openTemplate}
+                  openSettings={openSettings}
+                />
+              )}
             </div>
           </div>
         </section>
@@ -2034,12 +2144,14 @@ export function BarCounterApp() {
         <SettingsModal
           locale={locale}
           m={m}
+          activeEvent={activeEvent}
           pinEnabled={pinEnabled}
-          newEventQueueDefault={newEventQueueDefault}
-          newEventCategoriesDefault={newEventCategoriesDefault}
+          initialQueueEnabled={activeEvent?.queueEnabled ?? newEventQueueDefault}
+          initialCategoriesEnabled={
+            activeEvent?.categoriesEnabled ?? newEventCategoriesDefault
+          }
           onLocaleChange={changeLocale}
-          onNewEventQueueDefaultChange={setNewEventQueueDefault}
-          onNewEventCategoriesDefaultChange={setNewEventCategoriesDefault}
+          onApplyEventSettings={applyEventSettings}
           onPinEnabledChange={setPinEnabledState}
           onClose={() => setSettingsOpen(false)}
         />

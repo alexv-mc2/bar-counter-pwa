@@ -119,142 +119,153 @@ function EditButtonForm({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-950/55 p-4 sm:items-center">
       <div
-        className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-red-100 bg-[#fffdfa] p-6 shadow-2xl"
+        className="flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-red-100 bg-[#fffdfa] shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-button-title"
       >
-        <h2
-          id="edit-button-title"
-          className="mb-5 text-3xl font-black text-stone-950"
-        >
-          {mode === "add" ? m.addProduct : m.editButton}
-        </h2>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-red-100 px-6 py-4">
+          <h2
+            id="edit-button-title"
+            className="text-3xl font-black text-stone-950"
+          >
+            {mode === "add" ? m.addProduct : m.editButton}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border-2 border-stone-300 bg-white px-3 py-1.5 text-sm font-black text-stone-700 active:bg-stone-100"
+          >
+            {m.cancel}
+          </button>
+        </div>
 
-        <label className={LABEL_CLS}>{m.displayName}</label>
-        <input
-          className="mb-4 w-full rounded-2xl border-2 border-stone-200 bg-white px-4 py-3 text-xl font-black text-stone-950 placeholder:text-stone-300 focus:border-red-500 focus:outline-none"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+          <label className={LABEL_CLS}>{m.displayName}</label>
+          <input
+            className="mb-4 w-full rounded-2xl border-2 border-stone-200 bg-white px-4 py-3 text-xl font-black text-stone-950 placeholder:text-stone-300 focus:border-red-500 focus:outline-none"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
 
-        <label className={LABEL_CLS}>{m.template}</label>
-        <select
-          className={SELECT_CLS}
-          value={templateId}
-          onChange={(e) => applyTemplate(e.target.value)}
-        >
-          <option value="">—</option>
-          {templates.map((template) => (
-            <option key={template.id} value={template.id}>
-              {template.labels[locale]}
-            </option>
-          ))}
-        </select>
+          <label className={LABEL_CLS}>{m.template}</label>
+          <select
+            className={SELECT_CLS}
+            value={templateId}
+            onChange={(e) => applyTemplate(e.target.value)}
+          >
+            <option value="">—</option>
+            {templates.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.labels[locale]}
+              </option>
+            ))}
+          </select>
 
-        <label className={LABEL_CLS}>{m.category}</label>
-        <select
-          className={SELECT_CLS}
-          value={category}
-          onChange={(e) => setCategory(e.target.value as DrinkCategory)}
-        >
-          {CATEGORIES.map((value) => (
-            <option key={value} value={value}>
-              {m.categories[value]}
-            </option>
-          ))}
-        </select>
+          <label className={LABEL_CLS}>{m.category}</label>
+          <select
+            className={SELECT_CLS}
+            value={category}
+            onChange={(e) => setCategory(e.target.value as DrinkCategory)}
+          >
+            {CATEGORIES.map((value) => (
+              <option key={value} value={value}>
+                {m.categories[value]}
+              </option>
+            ))}
+          </select>
 
-        <label className={LABEL_CLS}>{m.icon}</label>
-        <select
-          className={SELECT_CLS}
-          value={icon}
-          onChange={(e) => setIcon(e.target.value as DrinkIcon)}
-        >
-          {ICONS.map((value) => (
-            <option key={value} value={value}>
-              {m.icons[value]}
-            </option>
-          ))}
-        </select>
+          <label className={LABEL_CLS}>{m.icon}</label>
+          <select
+            className={SELECT_CLS}
+            value={icon}
+            onChange={(e) => setIcon(e.target.value as DrinkIcon)}
+          >
+            {ICONS.map((value) => (
+              <option key={value} value={value}>
+                {m.icons[value]}
+              </option>
+            ))}
+          </select>
 
-        <label className={LABEL_CLS}>{m.color}</label>
-        <select
-          className={SELECT_CLS}
-          value={color}
-          onChange={(e) => setColor(e.target.value as DrinkColor)}
-        >
-          {COLORS.map((value) => (
-            <option key={value} value={value}>
-              {m.colors[value]}
-            </option>
-          ))}
-        </select>
+          <label className={LABEL_CLS}>{m.color}</label>
+          <select
+            className={SELECT_CLS}
+            value={color}
+            onChange={(e) => setColor(e.target.value as DrinkColor)}
+          >
+            {COLORS.map((value) => (
+              <option key={value} value={value}>
+                {m.colors[value]}
+              </option>
+            ))}
+          </select>
 
-        <button
-          type="button"
-          onClick={() => setSaveAsTemplate((current) => !current)}
-          className={`mb-4 min-h-12 w-full rounded-2xl border-2 px-4 py-3 text-left font-black transition ${
-            saveAsTemplate
-              ? "border-red-700 bg-red-50 text-red-800"
-              : "border-stone-300 bg-white text-stone-700 active:bg-stone-100"
-          }`}
-        >
-          <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-md border-2 border-current text-sm leading-none">
-            {saveAsTemplate ? "✓" : ""}
-          </span>
-          {m.saveAsTemplate}
-        </button>
+          <button
+            type="button"
+            onClick={() => setSaveAsTemplate((current) => !current)}
+            className={`mb-4 min-h-12 w-full rounded-2xl border-2 px-4 py-3 text-left font-black transition ${
+              saveAsTemplate
+                ? "border-red-700 bg-red-50 text-red-800"
+                : "border-stone-300 bg-white text-stone-700 active:bg-stone-100"
+            }`}
+          >
+            <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-md border-2 border-current text-sm leading-none">
+              {saveAsTemplate ? "✓" : ""}
+            </span>
+            {m.saveAsTemplate}
+          </button>
 
-        {mode === "edit" && onHide && (
-          <div className="mb-4 rounded-2xl border border-stone-200 bg-white/80 p-3">
-            {hideError && (
-              <p className="mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm font-black text-red-700">
-                {hideError}
-              </p>
-            )}
-            {hideConfirmOpen ? (
-              <div>
-                <p className="mb-3 text-base font-black text-stone-900">
-                  {m.hideButtonQuestion}
+          {mode === "edit" && onHide && (
+            <div className="rounded-2xl border border-stone-200 bg-white/80 p-3">
+              {hideError && (
+                <p className="mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm font-black text-red-700">
+                  {hideError}
                 </p>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setHideConfirmOpen(false)}
-                    className="min-h-12 flex-1 rounded-2xl border-2 border-stone-300 bg-white px-4 py-2 font-black text-stone-700 active:bg-stone-100"
-                  >
-                    {m.cancel}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onHide(button)}
-                    className="min-h-12 flex-1 rounded-2xl border-2 border-red-200 bg-white px-4 py-2 font-black text-red-700 active:bg-red-50"
-                  >
-                    {m.hideButton}
-                  </button>
+              )}
+              {hideConfirmOpen ? (
+                <div>
+                  <p className="mb-3 text-base font-black text-stone-900">
+                    {m.hideButtonQuestion}
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setHideConfirmOpen(false)}
+                      className="min-h-12 flex-1 rounded-2xl border-2 border-stone-300 bg-white px-4 py-2 font-black text-stone-700 active:bg-stone-100"
+                    >
+                      {m.cancel}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onHide(button)}
+                      className="min-h-12 flex-1 rounded-2xl border-2 border-red-200 bg-white px-4 py-2 font-black text-red-700 active:bg-red-50"
+                    >
+                      {m.hideButton}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  if (button.count > 0 || button.pendingCount > 0) {
-                    setHideError(m.hideButtonBlocked);
-                    return;
-                  }
-                  setHideError("");
-                  setHideConfirmOpen(true);
-                }}
-                className="min-h-12 w-full rounded-2xl border-2 border-red-200 bg-white px-4 py-2 font-black text-red-700 active:bg-red-50"
-              >
-                {m.hideButton}
-              </button>
-            )}
-          </div>
-        )}
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (button.count > 0 || button.pendingCount > 0) {
+                      setHideError(m.hideButtonBlocked);
+                      return;
+                    }
+                    setHideError("");
+                    setHideConfirmOpen(true);
+                  }}
+                  className="min-h-12 w-full rounded-2xl border-2 border-red-200 bg-white px-4 py-2 font-black text-red-700 active:bg-red-50"
+                >
+                  {m.hideButton}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
-        <div className="flex gap-3">
+        <div className="flex shrink-0 gap-3 border-t border-red-100 px-6 py-4">
           <button
             type="button"
             onClick={onClose}
