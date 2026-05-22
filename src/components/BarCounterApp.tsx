@@ -534,13 +534,13 @@ function SidePanel({
 
 function CategorySideMenu({
   categories,
-  counts,
+  pendingCounts,
   selectedCategory,
   onSelect,
   m,
 }: {
   categories: DrinkCategory[];
-  counts: Record<DrinkCategory, number>;
+  pendingCounts: Record<DrinkCategory, number>;
   selectedCategory: DrinkCategory;
   onSelect: (category: DrinkCategory) => void;
   m: Messages;
@@ -550,6 +550,7 @@ function CategorySideMenu({
       <div className="flex h-full flex-col gap-2">
         {categories.map((category) => {
           const selected = selectedCategory === category;
+          const pendingCount = pendingCounts[category];
           return (
             <button
               key={category}
@@ -563,9 +564,17 @@ function CategorySideMenu({
               }`}
             >
               <span className="block truncate">{m.categories[category]}</span>
-              <span className={`block text-sm ${selected ? "text-red-100" : "text-stone-500"}`}>
-                {counts[category]}
-              </span>
+              {pendingCount > 0 && (
+                <span
+                  className={[
+                    "mt-1 inline-flex min-w-9 items-center justify-center rounded-full px-2 py-0.5 text-sm font-black shadow-sm rbbc-queue-badge-active",
+                    selected ? "bg-white text-red-700" : "bg-red-700 text-white",
+                  ].join(" ")}
+                  data-category-pending={category}
+                >
+                  {pendingCount}
+                </span>
+              )}
             </button>
           );
         })}
@@ -1316,7 +1325,6 @@ export function BarCounterApp() {
     useState(false);
   const [undoMode, setUndoMode] = useState(false);
   const [serveMode, setServeMode] = useState(false);
-  const [menuEditMode, setMenuEditMode] = useState(false);
   const [eventMessage, setEventMessage] = useState<EventMessage | null>(null);
   const [selectedEventCategory, setSelectedEventCategory] = useState<DrinkCategory>("cocktail");
   const [editingButton, setEditingButton] = useState<DrinkButton | null>(null);
@@ -1383,12 +1391,6 @@ export function BarCounterApp() {
       setQueueOpen(false);
     }
   }, [activeEvent?.queueEnabled]);
-
-  useEffect(() => {
-    if (!activeEvent || screen !== "event") {
-      setMenuEditMode(false);
-    }
-  }, [activeEvent, screen]);
 
   const changeLocale = (next: Locale) => {
     setLocale(next);
@@ -1476,11 +1478,6 @@ export function BarCounterApp() {
 
   const handleTap = async (buttonId: string) => {
     if (!activeEvent) return;
-    if (menuEditMode) {
-      const button = activeEvent.buttons.find((item) => item.id === buttonId);
-      if (button) setEditingButton(button);
-      return;
-    }
     if (undoMode) {
       const updated = await undoDrink(activeEvent, buttonId);
       setUndoMode(false);
@@ -1524,7 +1521,6 @@ export function BarCounterApp() {
     await closeActiveEvent();
     setUndoMode(false);
     setServeMode(false);
-    setMenuEditMode(false);
     setEventMessage(null);
     setScreen("home");
     await refresh();
@@ -1545,7 +1541,6 @@ export function BarCounterApp() {
       setActiveEventState(null);
       setUndoMode(false);
       setServeMode(false);
-      setMenuEditMode(false);
       setEventMessage(null);
       setScreen("home");
     }
@@ -1576,7 +1571,8 @@ export function BarCounterApp() {
     };
     const nextTemplates = saveCustomDrinkTemplate(template);
     setCustomTemplates(nextTemplates);
-    return { ...patch, templateId: template.id };
+    const savedTemplate = nextTemplates.at(-1);
+    return { ...patch, templateId: savedTemplate?.id ?? template.id };
   };
 
   const handleSaveEdit = async (
@@ -1698,6 +1694,25 @@ export function BarCounterApp() {
       other: 0,
     },
   );
+  const categoryPendingCounts = CATEGORY_ORDER.reduce<Record<DrinkCategory, number>>(
+    (acc, category) => {
+      acc[category] = queueEnabled
+        ? sortedButtons
+            .filter((button) => button.category === category)
+            .reduce((sum, button) => sum + button.pendingCount, 0)
+        : 0;
+      return acc;
+    },
+    {
+      cocktail: 0,
+      mocktail: 0,
+      beer: 0,
+      wine: 0,
+      soft: 0,
+      warm: 0,
+      other: 0,
+    },
+  );
   const activeCategories = categoriesEnabled
     ? CATEGORY_ORDER.filter((category) => categoryCounts[category] > 0)
     : [];
@@ -1757,20 +1772,13 @@ export function BarCounterApp() {
     void openResults(activeEvent);
   };
   const toggleUndoMode = () => {
-    setMenuEditMode(false);
     setServeMode(false);
     setUndoMode((current) => !current);
   };
   const toggleServeMode = () => {
     if (!queueEnabled) return;
-    setMenuEditMode(false);
     setUndoMode(false);
     setServeMode((current) => !current);
-  };
-  const toggleMenuEditMode = () => {
-    setUndoMode(false);
-    setServeMode(false);
-    setMenuEditMode((current) => !current);
   };
 
   useEffect(() => {
@@ -2100,25 +2108,6 @@ export function BarCounterApp() {
                   {m.exportCsv}
                 </IconButton>
               </div>
-              <div className="flex w-full items-center gap-2">
-                <button
-                  type="button"
-                  data-menu-edit-toggle="true"
-                  onClick={toggleMenuEditMode}
-                  className={`min-h-10 rounded-xl border-2 px-4 py-2 text-sm font-black transition ${
-                    menuEditMode
-                      ? "border-amber-500 bg-amber-100 text-stone-950 shadow-[0_4px_12px_rgba(180,83,9,0.18)]"
-                      : "border-stone-300 bg-white/80 text-stone-700 active:bg-stone-100"
-                  }`}
-                >
-                  {m.editMenu}
-                </button>
-                {menuEditMode && (
-                  <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-black text-stone-700 sm:text-sm">
-                    {m.editMenuActive}
-                  </p>
-                )}
-              </div>
               {eventMessage && (
                 <p className="w-full rounded-xl bg-red-50 px-3 py-2 text-center text-xs font-black text-red-700 sm:text-sm">
                   {m[eventMessage]}
@@ -2144,7 +2133,6 @@ export function BarCounterApp() {
                       button={button}
                       undoMode={undoMode}
                       serveMode={serveMode}
-                      editMode={menuEditMode}
                       cardScale={gridLayout.cardScale}
                       onTap={(id) => void handleTap(id)}
                       onLongPress={setEditingButton}
@@ -2155,8 +2143,7 @@ export function BarCounterApp() {
                       cardScale={gridLayout.cardScale}
                       label={m.addProduct}
                       hint={m.addProductHint}
-                      editMode={menuEditMode}
-                      onTap={menuEditMode ? openAddProduct : undefined}
+                      onTap={openAddProduct}
                       onLongPress={openAddProduct}
                     />
                   )}
@@ -2170,7 +2157,7 @@ export function BarCounterApp() {
               {categoriesEnabled ? (
                 <CategorySideMenu
                   categories={activeCategories}
-                  counts={categoryCounts}
+                  pendingCounts={categoryPendingCounts}
                   selectedCategory={effectiveSelectedCategory}
                   onSelect={setSelectedEventCategory}
                   m={m}
