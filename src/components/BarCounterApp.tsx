@@ -1644,10 +1644,13 @@ export function BarCounterApp() {
   // Presets and per-button visibility only affect the active grid. Hidden slots
   // stay in event.buttons, so non-zero hidden counts remain in totals, queue,
   // results, CSV export, and future presets.
+  const activeEventVisibleButtons = sortedButtons.filter(
+    (button) => button.isVisible !== false,
+  );
   const presetVisibleButtons = visibleButtonsForPreset(sortedButtons, buttonCountPresetState);
   const categoryCounts = CATEGORY_ORDER.reduce<Record<DrinkCategory, number>>(
     (acc, category) => {
-      acc[category] = presetVisibleButtons.filter(
+      acc[category] = activeEventVisibleButtons.filter(
         (button) => button.category === category,
       ).length;
       return acc;
@@ -1665,7 +1668,7 @@ export function BarCounterApp() {
   const categoryPendingCounts = CATEGORY_ORDER.reduce<Record<DrinkCategory, number>>(
     (acc, category) => {
       acc[category] = queueEnabled
-        ? sortedButtons
+        ? activeEventVisibleButtons
             .filter((button) => button.category === category)
             .reduce((sum, button) => sum + button.pendingCount, 0)
         : 0;
@@ -1690,9 +1693,9 @@ export function BarCounterApp() {
     ? selectedEventCategory
     : (activeCategories[0] ?? "cocktail");
   const categoryFilteredButtons = categoriesEnabled
-    ? presetVisibleButtons.filter(
-        (button) => button.category === effectiveSelectedCategory,
-      )
+    ? activeEventVisibleButtons
+        .filter((button) => button.category === effectiveSelectedCategory)
+        .slice(0, Math.min(buttonCountPresetState, activeEventVisibleButtons.length))
     : presetVisibleButtons;
   const visibleButtons = categoryFilteredButtons;
   const addButtonSlot = findAddButtonSlot(sortedButtons, buttonCountPresetState);

@@ -8,6 +8,12 @@ import type { DrinkButton } from "@/lib/types";
 const LONG_PRESS_MS = 3000;
 const PRODUCT_CATEGORY_ART: Partial<Record<DrinkButton["category"], string>> = {
   cocktail: "/category-art/cocktails.png",
+  mocktail: "/category-art/mocktails.png",
+  beer: "/category-art/beer.png",
+  wine: "/category-art/wine.png",
+  soft: "/category-art/soft-drinks.png",
+  warm: "/category-art/warm-drinks.png",
+  other: "/category-art/other.png",
 };
 export type DrinkCardScale = "compact" | "medium" | "large";
 
@@ -232,7 +238,7 @@ export function DrinkGridButton({
         className={`flex shrink-0 items-center justify-center bg-white/55 ${palette.soft} ${scale.iconWrap}`}
       >
         {artSrc ? (
-          // Static public asset keeps cocktail artwork local and optional.
+          // Static public assets keep category artwork local and optional.
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={artSrc}
