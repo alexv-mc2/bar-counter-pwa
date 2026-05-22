@@ -2012,7 +2012,7 @@ export function BarCounterApp() {
                   variant={undoMode ? "solid" : "outline"}
                   onClick={toggleUndoMode}
                 >
-                  {undoMode ? m.undoMode : m.undo}
+                  {m.undo}
                 </IconButton>
                 <IconButton
                   icon={<QueueIcon />}
