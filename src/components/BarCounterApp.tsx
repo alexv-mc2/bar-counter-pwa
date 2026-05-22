@@ -17,7 +17,7 @@ import {
 import { EditButtonModal } from "@/components/EditButtonModal";
 import { EventResultsView } from "@/components/EventResultsView";
 import { buildEventCsv, downloadCsv, eventCsvFilename } from "@/lib/csv/export";
-import { formatEventDateTime, getPendingQueue } from "@/lib/events/results";
+import { getPendingQueue } from "@/lib/events/results";
 import { t } from "@/lib/i18n/messages";
 import { DRINK_TEMPLATES } from "@/lib/templates/drinks";
 import {
@@ -268,25 +268,6 @@ function DownloadIcon() {
   );
 }
 
-function CalendarIcon() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="2" y="3" width="12" height="11" rx="2" />
-      <path d="M5 1.5V4.5M11 1.5V4.5M2 7h12" />
-    </svg>
-  );
-}
-
 function StopSquareIcon() {
   return (
     <svg
@@ -366,12 +347,10 @@ function BackArrowIcon() {
 function EventHero({
   event,
   totalCount,
-  locale,
   m,
 }: {
   event: BarEvent | null;
   totalCount: number;
-  locale: Locale;
   m: Messages;
 }) {
   if (!event) {
@@ -389,12 +368,6 @@ function EventHero({
 
   return (
     <div className="min-w-0 text-center">
-      <p className="flex items-center justify-center gap-1.5 text-xs font-semibold text-stone-700 sm:text-sm">
-        <span className="text-red-700">
-          <CalendarIcon />
-        </span>
-        {formatEventDateTime(event.createdAt, locale)}
-      </p>
       <h1 className="truncate text-2xl font-black tracking-tight text-stone-950 sm:text-3xl lg:text-4xl 2xl:text-5xl">
         {event.name}
       </h1>
@@ -467,7 +440,6 @@ function IconButton({
 function SidePanel({
   activeEvent,
   totalCount,
-  locale,
   queueEnabled,
   m,
   openResults,
@@ -478,7 +450,6 @@ function SidePanel({
 }: {
   activeEvent: BarEvent;
   totalCount: number;
-  locale: Locale;
   queueEnabled: boolean;
   m: Messages;
   openResults: () => void;
@@ -497,9 +468,6 @@ function SidePanel({
         <h2 className="mt-5 truncate text-2xl font-black text-stone-950">
           {activeEvent.name}
         </h2>
-        <p className="mt-1 text-sm font-medium text-stone-600">
-          {formatEventDateTime(activeEvent.createdAt, locale)}
-        </p>
         <span className="mt-2 inline-flex rounded-lg bg-red-700 px-2.5 py-1 text-xs font-black uppercase text-white">
           {activeEvent.isActive ? m.active : m.closed}
         </span>
@@ -1804,7 +1772,7 @@ export function BarCounterApp() {
         >
           <RollingBadgerLogo />
         </button>
-        <EventHero event={heroEvent} totalCount={totalCount} locale={locale} m={m} />
+        <EventHero event={heroEvent} totalCount={totalCount} m={m} />
         <LanguageSwitcher locale={locale} onChange={changeLocale} />
       </header>
 
@@ -2166,7 +2134,6 @@ export function BarCounterApp() {
                 <SidePanel
                   activeEvent={activeEvent}
                   totalCount={totalCount}
-                  locale={locale}
                   queueEnabled={queueEnabled}
                   m={m}
                   openResults={openActiveResults}

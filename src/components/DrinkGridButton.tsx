@@ -6,6 +6,9 @@ import { COLOR_CLASSES } from "@/lib/ui/colors";
 import type { DrinkButton } from "@/lib/types";
 
 const LONG_PRESS_MS = 3000;
+const PRODUCT_CATEGORY_ART: Partial<Record<DrinkButton["category"], string>> = {
+  cocktail: "/category-art/cocktails.png",
+};
 export type DrinkCardScale = "compact" | "medium" | "large";
 
 const SCALE_CLASSES: Record<
@@ -195,6 +198,7 @@ export function DrinkGridButton({
 }) {
   const palette = COLOR_CLASSES[button.color];
   const scale = SCALE_CLASSES[cardScale];
+  const artSrc = PRODUCT_CATEGORY_ART[button.category];
   const { handleClick: handleLongPressClick, pointerHandlers } = useReliableLongPress(
     () => onLongPress(button),
   );
@@ -227,11 +231,23 @@ export function DrinkGridButton({
       <span
         className={`flex shrink-0 items-center justify-center bg-white/55 ${palette.soft} ${scale.iconWrap}`}
       >
-        <DrinkIconView
-          icon={button.icon}
-          category={button.category}
-          className={scale.icon}
-        />
+        {artSrc ? (
+          // Static public asset keeps cocktail artwork local and optional.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={artSrc}
+            alt=""
+            className={`${scale.icon} object-contain`}
+            data-product-art={button.category}
+            draggable={false}
+          />
+        ) : (
+          <DrinkIconView
+            icon={button.icon}
+            category={button.category}
+            className={scale.icon}
+          />
+        )}
       </span>
       <span
         className={`line-clamp-2 font-black leading-[1.05] text-stone-950 ${scale.name}`}
